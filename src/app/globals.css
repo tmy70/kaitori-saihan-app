@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ライト/ダークのテーマ変数（RGB 各値・スペース区切り） */
+:root {
+  --bg: 244 246 249;
+  --surface: 255 255 255;
+  --surface-2: 248 250 252;
+  --border: 226 232 240;
+  --fg: 17 24 39;
+  --muted: 100 116 139;
+}
+
+.dark {
+  --bg: 10 18 31;
+  --surface: 17 28 46;
+  --surface-2: 23 38 62;
+  --border: 38 56 84;
+  --fg: 226 232 240;
+  --muted: 148 168 196;
+}
+
+html,
+body {
+  background-color: rgb(var(--bg));
+  color: rgb(var(--fg));
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-feature-settings: "palt";
+}
+
+/* 数値入力のスピナーを消す（スマホ最適化） */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* スクロールバー（控えめ） */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--border));
+  border-radius: 4px;
+}
+
+/* 共通トランジション */
+.transition-base {
+  transition: all 0.18s ease;
+}
+
+/* 印刷時の調整（PDFは@react-pdfだが、画面印刷の保険） */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

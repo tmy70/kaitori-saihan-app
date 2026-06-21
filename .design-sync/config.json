@@ -1,0 +1,33 @@
+{
+  "projectId": "c44390f7-8f33-4e49-9e89-eea38d1080bf",
+  "shape": "package",
+  "pkg": "kaitori-saihan-app",
+  "globalName": "KaitoriUI",
+  "tsconfig": "tsconfig.json",
+  "componentSrcMap": {
+    "Button": "src/components/ui.tsx",
+    "Card": "src/components/ui.tsx",
+    "CardHeader": "src/components/ui.tsx",
+    "Field": "src/components/ui.tsx",
+    "TextInput": "src/components/ui.tsx",
+    "TextArea": "src/components/ui.tsx",
+    "NumberInput": "src/components/ui.tsx",
+    "Select": "src/components/ui.tsx",
+    "Toggle": "src/components/ui.tsx",
+    "Badge": "src/components/ui.tsx",
+    "Tabs": "src/components/ui.tsx",
+    "Modal": "src/components/ui.tsx"
+  },
+  "cssEntry": "dist/ds.css",
+  "extraFonts": [
+    ".design-sync/fonts.css"
+  ],
+  "overrides": {
+    "Modal": {
+      "cardMode": "single",
+      "primaryStory": "Confirm"
+    }
+  },
+  "readmeHeader": ".design-sync/conventions.md",
+  "buildCmd": "npx tailwindcss -c tailwind.config.ts -i src/app/globals.css -o dist/ds.css --content \"./src/components/ui.tsx,./.design-sync/previews/**/*.tsx\" --minify"
+}
