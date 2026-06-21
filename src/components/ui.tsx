@@ -183,26 +183,49 @@ export function Toggle({
   onChange: (v: boolean) => void;
   label?: string;
 }) {
+  // スイッチ本体（幅を占有しない・shrink-0）
+  const sw = (
+    <span
+      className={cn(
+        "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-base",
+        checked ? "bg-emerald-500" : "bg-border"
+      )}
+    >
+      <span
+        className={cn(
+          "inline-block h-5 w-5 transform rounded-full bg-white shadow transition-base",
+          checked ? "translate-x-5" : "translate-x-0.5"
+        )}
+      />
+    </span>
+  );
+
+  // ラベル無し: スイッチだけをコンパクト表示（横幅を占有しない）
+  if (!label) {
+    return (
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className="inline-flex shrink-0 items-center"
+      >
+        {sw}
+      </button>
+    );
+  }
+
+  // ラベル有り: ラベル左・スイッチ右の横並び（行幅いっぱい）
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={checked}
       onClick={() => onChange(!checked)}
       className="flex w-full items-center justify-between gap-3 text-left"
     >
-      {label && <span className="text-sm text-fg">{label}</span>}
-      <span
-        className={cn(
-          "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-base",
-          checked ? "bg-emerald-500" : "bg-border"
-        )}
-      >
-        <span
-          className={cn(
-            "inline-block h-5 w-5 transform rounded-full bg-white shadow transition-base",
-            checked ? "translate-x-5" : "translate-x-0.5"
-          )}
-        />
-      </span>
+      <span className="text-sm text-fg">{label}</span>
+      {sw}
     </button>
   );
 }
