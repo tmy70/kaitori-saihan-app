@@ -12,7 +12,7 @@ import { Company, Project, PropertyType, PROPERTY_TYPE_LABELS } from "@/lib/type
 import { fmtDateTime, genId } from "@/lib/format";
 import { calculate, judgeProfit } from "@/lib/calc";
 import { fmtMan, fmtPct } from "@/lib/format";
-import { createSampleProject, createEmptyProject } from "@/lib/sampleData";
+import { createSampleProject, createEmptyProject, isSampleProject } from "@/lib/sampleData";
 import { DEFAULT_COMPANY_ID } from "@/lib/companies";
 
 export default function HomePage() {
@@ -40,12 +40,16 @@ export default function HomePage() {
 
   const companyName = (id: string) => companies.find((c) => c.id === id)?.name ?? "（不明）";
   const shown = filter === "all" ? projects : projects.filter((p) => p.companyId === filter);
+  const myCases = shown.filter((p) => !isSampleProject(p));
+  const samples = shown.filter((p) => isSampleProject(p));
 
   async function handleDuplicate(p: Project) {
+    // 複製は常に「自分のマイ案件」になる（サンプルを複製しても編集可能な自分の案件に）
     const copy: Project = {
       ...structuredClone(p),
       id: genId(),
       name: p.name + "（複製）",
+      isSample: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -61,6 +65,12 @@ export default function HomePage() {
   }
 
   async function loadSamples() {
+    // 既存サンプル（フラグ・固定ID・旧名称で判定）を一掃してから4件だけ再投入。
+    // 押すたびの無限増殖を防ぎ、過去に増殖した分も整理する。マイ案件は触らない。
+    const all = await db.getAllProjects();
+    for (const p of all) {
+      if (isSampleProject(p)) await db.deleteProject(p.id);
+    }
     const types: PropertyType[] = ["building", "land", "kenuri", "mansion"];
     for (const t of types) {
       await db.saveProject(createSampleProject(t, DEFAULT_COMPANY_ID));
@@ -107,7 +117,7 @@ export default function HomePage() {
         />
       </div>
 
-      {/* 一覧 */}
+      {/* 一覧（マイ案件 と サンプル を分けて表示） */}
       {loading ? (
         <p className="py-10 text-center text-sm text-muted">読み込み中…</p>
       ) : shown.length === 0 ? (
@@ -116,53 +126,53 @@ export default function HomePage() {
           <p className="mt-1 text-xs text-muted">「新規案件」または「サンプル読み込み」から始めましょう。</p>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {shown.map((p) => {
-            const r = calculate(p.calc);
-            const judge = judgeProfit(r);
-            return (
-              <Card key={p.id} className="overflow-hidden">
-                <button
-                  onClick={() => router.push(`/project?id=${p.id}`)}
-                  className="block w-full p-4 text-left transition-base hover:bg-surface-2"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Badge tone="brand">{companyName(p.companyId)}</Badge>
-                        <Badge tone="neutral">{PROPERTY_TYPE_LABELS[p.propertyType]}</Badge>
-                      </div>
-                      <h3 className="mt-2 truncate text-base font-bold text-fg">{p.name || "（無題）"}</h3>
-                      <p className="mt-0.5 text-[11px] text-muted">更新: {fmtDateTime(p.updatedAt)}</p>
-                    </div>
-                    <Badge tone={judge}>
-                      {judge === "good" ? "良好" : judge === "warn" ? "要検討" : "要注意"}
-                    </Badge>
-                  </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                    <Kpi label="販売価格" value={`${fmtMan(p.calc.sellPrice)}万`} />
-                    <Kpi label="営業利益" value={`${fmtMan(r.operatingProfit)}万`} tone={judge} />
-                    <Kpi label="営業利益率" value={fmtPct(r.operatingMargin)} tone={judge} />
-                  </div>
-                </button>
-                <div className="flex border-t border-border">
-                  <button
-                    onClick={() => handleDuplicate(p)}
-                    className="flex-1 py-2.5 text-xs font-medium text-muted transition-base hover:bg-surface-2 hover:text-fg"
-                  >
-                    複製
-                  </button>
-                  <div className="w-px bg-border" />
-                  <button
-                    onClick={() => setDelTarget(p)}
-                    className="flex-1 py-2.5 text-xs font-medium text-red-600 transition-base hover:bg-red-500/10"
-                  >
-                    削除
-                  </button>
-                </div>
-              </Card>
-            );
-          })}
+        <div className="space-y-6">
+          <section>
+            <div className="mb-2 flex items-baseline gap-2">
+              <h2 className="text-sm font-bold text-fg">マイ案件</h2>
+              <span className="text-xs text-muted">{myCases.length}件</span>
+            </div>
+            {myCases.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-xs text-muted">
+                自分の案件はまだありません。「＋ 新規案件」で作成、またはサンプルを「複製」して始められます。
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {myCases.map((p) => (
+                  <ProjectCard
+                    key={p.id}
+                    p={p}
+                    companyName={companyName}
+                    onOpen={(id) => router.push(`/project?id=${id}`)}
+                    onDuplicate={handleDuplicate}
+                    onDelete={setDelTarget}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+
+          {samples.length > 0 && (
+            <section>
+              <div className="mb-2 flex items-baseline gap-2">
+                <h2 className="text-sm font-bold text-fg">サンプル（テンプレート）</h2>
+                <span className="text-xs text-muted">{samples.length}件・複製すると自分の案件になります</span>
+              </div>
+              <div className="space-y-3">
+                {samples.map((p) => (
+                  <ProjectCard
+                    key={p.id}
+                    p={p}
+                    sample
+                    companyName={companyName}
+                    onOpen={(id) => router.push(`/project?id=${id}`)}
+                    onDuplicate={handleDuplicate}
+                    onDelete={setDelTarget}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       )}
 
@@ -196,6 +206,70 @@ export default function HomePage() {
         「{delTarget?.name}」を削除します。この操作は取り消せません。
       </Modal>
     </main>
+  );
+}
+
+function ProjectCard({
+  p,
+  sample,
+  companyName,
+  onOpen,
+  onDuplicate,
+  onDelete,
+}: {
+  p: Project;
+  sample?: boolean;
+  companyName: (id: string) => string;
+  onOpen: (id: string) => void;
+  onDuplicate: (p: Project) => void;
+  onDelete: (p: Project) => void;
+}) {
+  const r = calculate(p.calc);
+  const judge = judgeProfit(r);
+  return (
+    <Card className={cn("overflow-hidden", sample && "border-dashed")}>
+      <button
+        onClick={() => onOpen(p.id)}
+        className="block w-full p-4 text-left transition-base hover:bg-surface-2"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              {sample && (
+                <span className="inline-flex items-center rounded-full bg-accent-500/15 px-2.5 py-1 text-xs font-semibold text-accent-600 dark:text-accent-400">
+                  サンプル
+                </span>
+              )}
+              <Badge tone="brand">{companyName(p.companyId)}</Badge>
+              <Badge tone="neutral">{PROPERTY_TYPE_LABELS[p.propertyType]}</Badge>
+            </div>
+            <h3 className="mt-2 truncate text-base font-bold text-fg">{p.name || "（無題）"}</h3>
+            <p className="mt-0.5 text-[11px] text-muted">更新: {fmtDateTime(p.updatedAt)}</p>
+          </div>
+          <Badge tone={judge}>{judge === "good" ? "良好" : judge === "warn" ? "要検討" : "要注意"}</Badge>
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <Kpi label="販売価格" value={`${fmtMan(p.calc.sellPrice)}万`} />
+          <Kpi label="営業利益" value={`${fmtMan(r.operatingProfit)}万`} tone={judge} />
+          <Kpi label="営業利益率" value={fmtPct(r.operatingMargin)} tone={judge} />
+        </div>
+      </button>
+      <div className="flex border-t border-border">
+        <button
+          onClick={() => onDuplicate(p)}
+          className="flex-1 py-2.5 text-xs font-medium text-muted transition-base hover:bg-surface-2 hover:text-fg"
+        >
+          {sample ? "複製してマイ案件に" : "複製"}
+        </button>
+        <div className="w-px bg-border" />
+        <button
+          onClick={() => onDelete(p)}
+          className="flex-1 py-2.5 text-xs font-medium text-red-600 transition-base hover:bg-red-500/10"
+        >
+          削除
+        </button>
+      </div>
+    </Card>
   );
 }
 

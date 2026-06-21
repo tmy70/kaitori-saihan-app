@@ -104,13 +104,27 @@ export function defaultScenarios() {
   ];
 }
 
-/** サンプル案件（Project）を1件生成 */
+/** サンプルの固定ID（同じ押下で重複生成しないための安定ID） */
+export const SAMPLE_ID_PREFIX = "sample-";
+export const sampleId = (type: PropertyType) => `${SAMPLE_ID_PREFIX}${type}`;
+
+/** サンプル（テンプレート）かどうかの判定。旧データ（フラグ無し・名称が「サンプル：」）も拾う */
+export function isSampleProject(p: { id?: string; isSample?: boolean; name?: string }): boolean {
+  return (
+    p.isSample === true ||
+    (typeof p.id === "string" && p.id.startsWith(SAMPLE_ID_PREFIX)) ||
+    (typeof p.name === "string" && p.name.startsWith("サンプル："))
+  );
+}
+
+/** サンプル案件（Project）を1件生成（固定ID・isSample印付き） */
 export function createSampleProject(type: PropertyType, companyId = DEFAULT_COMPANY_ID): Project {
   const now = new Date().toISOString();
   return {
-    id: genId(),
+    id: sampleId(type),
     companyId,
     name: SAMPLE_NAMES[type],
+    isSample: true,
     propertyType: type,
     calc: structuredClone(SAMPLE_CALC[type]),
     ringi: {
@@ -149,13 +163,14 @@ export function createSampleProject(type: PropertyType, companyId = DEFAULT_COMP
   };
 }
 
-/** 空の新規案件を生成 */
+/** 空の新規案件を生成（マイ案件＝isSample:false） */
 export function createEmptyProject(type: PropertyType, companyId: string, name: string): Project {
   const base = createSampleProject(type, companyId);
   return {
     ...base,
     id: genId(),
     name: name || "新規案件",
+    isSample: false,
     calc: { propertyType: type, sellPrice: 0, acquisition: {}, expenses: {}, selling: {} },
     ringi: { ...base.ringi, propertyName: name || "", address: "" },
   };

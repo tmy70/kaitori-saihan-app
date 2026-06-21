@@ -131,6 +131,8 @@ export interface Project {
   id: string;
   companyId: string; // 発行会社
   name: string; // 案件名
+  /** サンプル（テンプレート）かどうか。マイ案件と区別する印 */
+  isSample?: boolean;
   propertyType: PropertyType;
   calc: CalcInput;
   ringi: RingiData;
