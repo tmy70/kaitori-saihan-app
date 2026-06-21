@@ -12,7 +12,7 @@ import { calculate, calcBrokerage, breakEvenPrice } from "@/lib/calc";
 import { ngLabels } from "@/lib/checklist";
 import { fmtMan, fmtPct } from "@/lib/format";
 import { PROPERTY_TYPE_LABELS, PlanDoc } from "@/lib/types";
-import { downloadPdf } from "@/lib/pdf";
+import { renderPdfUrl, triggerDownload } from "@/lib/pdf";
 import { CalcPdf } from "@/components/pdf/CalcPdf";
 import { RingiPdf } from "@/components/pdf/RingiPdf";
 import { BankPlanPdf, InternalPlanPdf } from "@/components/pdf/PlanPdf";
@@ -199,14 +199,31 @@ ${ngText}${simText}
 
   const safeName = (current.name || "案件").replace(/[\\/:*?"<>|]/g, "_");
 
+  // PDFを別タブで開く（プレビュー表示。そこから保存・印刷できる）
   async function dl(kind: "calc" | "ringi" | "bank" | "internal") {
+    // ポップアップブロック回避: クリック直後（生成のawait前）に空タブを開く
+    const win = window.open("", "_blank");
     setBusy("pdf-" + kind);
+    setError(null);
     try {
-      if (kind === "calc") await downloadPdf(<CalcPdf project={current} company={company} />, `計算書_${safeName}`);
-      else if (kind === "ringi") await downloadPdf(<RingiPdf project={current} company={company} />, `稟議書_${safeName}`);
-      else if (kind === "bank") await downloadPdf(<BankPlanPdf project={current} company={company} />, `事業計画書_銀行提出用_${safeName}`);
-      else await downloadPdf(<InternalPlanPdf project={current} company={company} />, `事業計画書_社内用_${safeName}`);
+      const map = {
+        calc: { el: <CalcPdf project={current} company={company} />, name: `計算書_${safeName}` },
+        ringi: { el: <RingiPdf project={current} company={company} />, name: `稟議書_${safeName}` },
+        bank: { el: <BankPlanPdf project={current} company={company} />, name: `事業計画書_銀行提出用_${safeName}` },
+        internal: { el: <InternalPlanPdf project={current} company={company} />, name: `事業計画書_社内用_${safeName}` },
+      } as const;
+      const { el, name } = map[kind];
+      const url = await renderPdfUrl(el);
+      if (win && !win.closed) {
+        // 別タブでプレビュー表示
+        win.location.href = url;
+      } else {
+        // タブが開けなかった場合（ブロック等）はダウンロードにフォールバック
+        triggerDownload(url, name);
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (e) {
+      if (win && !win.closed) win.close();
       setError("PDF生成に失敗しました: " + (e instanceof Error ? e.message : ""));
     } finally {
       setBusy(null);
@@ -223,7 +240,7 @@ ${ngText}${simText}
 
       {/* PDF出力 */}
       <Card>
-        <CardHeader title="PDF出力" desc="日本語埋め込み・会社名ヘッダー付き" />
+        <CardHeader title="PDF出力" desc="別タブでプレビュー表示（保存・印刷できます）" />
         <div className="grid grid-cols-2 gap-2 p-4">
           <Button variant="secondary" onClick={() => dl("calc")} disabled={!!busy}>
             {busy === "pdf-calc" ? "生成中…" : "計算書 PDF"}
