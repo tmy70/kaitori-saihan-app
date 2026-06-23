@@ -8,7 +8,7 @@
 //  ・基準は社内標準を既定値として持ちつつ、案件ごとに画面で編集できる。
 //  ・予備項目（custom）はユーザーがラベルを手打ちで追加・編集できる。
 // ============================================================
-import { ChecklistItem, PropertyType, ScheduleStep } from "./types";
+import { ChecklistItem, ChecklistStatus, PropertyType, ScheduleStep } from "./types";
 
 /**
  * チェックリスト項目のマスタ定義。
@@ -237,7 +237,7 @@ export function coreItemCount(type: PropertyType): number {
   return CHECKLIST_DEFS.filter((d) => d.types.includes(type)).length;
 }
 
-/** 物件種別に応じた初期チェックリストを生成（全てNG=false。予備項目を1つ付与） */
+/** 物件種別に応じた初期チェックリストを生成（全て不適合=ng。予備項目を1つ付与） */
 export function createChecklist(type: PropertyType): ChecklistItem[] {
   let id = 0;
   const items: ChecklistItem[] = CHECKLIST_DEFS.filter((d) => d.types.includes(type)).map((d) => ({
@@ -245,19 +245,26 @@ export function createChecklist(type: PropertyType): ChecklistItem[] {
     key: d.key,
     label: d.label,
     criteria: criteriaFor(d, type),
-    ok: false,
+    status: "ng",
   }));
   // 予備項目（手打ち編集可）
-  items.push({ id: ++id, key: "spare-1", label: "（予備項目）", criteria: "", ok: false, custom: true });
+  items.push({ id: ++id, key: "spare-1", label: "（予備項目）", criteria: "", status: "ng", custom: true });
   return items;
+}
+
+/** 旧データ（ok:boolean）も含めて判定状態を取り出す */
+function statusOf(it: { status?: ChecklistStatus; ok?: boolean } | undefined): ChecklistStatus {
+  if (!it) return "ng";
+  if (it.status === "ok" || it.status === "fixable" || it.status === "ng") return it.status;
+  return it.ok ? "ok" : "ng"; // 旧 ok:boolean からの移行
 }
 
 /**
  * 既存のチェックリストを物件種別に合わせて再構成する。
  *  ・種別に該当する項目だけを表示し、不要な項目は除く
- *  ・同一 key の既存項目があれば OK/基準編集 を引き継ぐ
+ *  ・同一 key の既存項目があれば 判定状態/基準編集 を引き継ぐ
  *  ・予備項目（custom）はすべて保持する
- *  ・key を持たない旧データはラベル一致で OK を引き継ぐ
+ *  ・key を持たない旧データ（ok:boolean）はラベル一致で判定を引き継ぐ
  */
 export function reconcileChecklist(
   stored: ChecklistItem[] | undefined,
@@ -276,7 +283,7 @@ export function reconcileChecklist(
       label: d.label,
       // 基準は編集済みがあれば維持、無ければ既定値
       criteria: prev?.criteria ?? criteriaFor(d, type),
-      ok: prev?.ok ?? false,
+      status: statusOf(prev),
     };
   });
 
@@ -284,10 +291,17 @@ export function reconcileChecklist(
   const customs = list.filter((i) => i.custom);
   if (customs.length > 0) {
     for (const c of customs) {
-      base.push({ ...c, id: ++id });
+      base.push({
+        id: ++id,
+        key: c.key,
+        label: c.label,
+        criteria: c.criteria ?? "",
+        custom: true,
+        status: statusOf(c),
+      });
     }
   } else {
-    base.push({ id: ++id, key: "spare-1", label: "（予備項目）", criteria: "", ok: false, custom: true });
+    base.push({ id: ++id, key: "spare-1", label: "（予備項目）", criteria: "", status: "ng", custom: true });
   }
   return base;
 }
@@ -303,7 +317,7 @@ export function addSpareItem(items: ChecklistItem[]): ChecklistItem[] {
   const nextNum = (spareNums.length ? Math.max(...spareNums) : 0) + 1;
   return [
     ...items,
-    { id: maxId + 1, key: `spare-${nextNum}`, label: "", criteria: "", ok: false, custom: true },
+    { id: maxId + 1, key: `spare-${nextNum}`, label: "", criteria: "", status: "ng", custom: true },
   ];
 }
 
@@ -324,14 +338,33 @@ export function createSchedule(): ScheduleStep[] {
   return SCHEDULE_DEFS.map((s) => ({ ...s, date: "" }));
 }
 
-/** OK数を集計 */
-export function countOk(items: ChecklistItem[]): number {
-  return items.filter((i) => i.ok).length;
+/** 指定状態の件数（ラベル未入力の予備項目は除外） */
+export function countStatus(items: ChecklistItem[], status: ChecklistStatus): number {
+  return items.filter((i) => i.status === status && !(i.custom && i.label.trim() === "")).length;
 }
 
-/** NG項目のラベル一覧（予備項目はラベル未入力なら除外） */
+/** クリア数（適合＋是正可能）。是正可能は合格に算入する */
+export function countCleared(items: ChecklistItem[]): number {
+  return items.filter(
+    (i) => (i.status === "ok" || i.status === "fixable") && !(i.custom && i.label.trim() === "")
+  ).length;
+}
+
+/** 旧APIとの互換: 「クリア数」を返す（適合＋是正可能） */
+export function countOk(items: ChecklistItem[]): number {
+  return countCleared(items);
+}
+
+/** 不適合（是正困難）項目のラベル一覧。事業計画書のリスク欄等で使用 */
 export function ngLabels(items: ChecklistItem[]): string[] {
   return items
-    .filter((i) => !i.ok && !(i.custom && i.label.trim() === ""))
+    .filter((i) => i.status === "ng" && !(i.custom && i.label.trim() === ""))
+    .map((i) => `${i.id}. ${i.label || "（予備項目）"}`);
+}
+
+/** 是正可能（要補修）項目のラベル一覧。事業計画書の補修コスト欄等で使用 */
+export function fixableLabels(items: ChecklistItem[]): string[] {
+  return items
+    .filter((i) => i.status === "fixable" && !(i.custom && i.label.trim() === ""))
     .map((i) => `${i.id}. ${i.label || "（予備項目）"}`);
 }

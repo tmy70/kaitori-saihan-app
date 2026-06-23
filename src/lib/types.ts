@@ -72,6 +72,14 @@ export interface CalcResult {
   operatingMargin: number; // 営業利益率（0〜1）
 }
 
+/**
+ * チェック項目の判定状態（3段階）
+ *  - ok:      適合（基準クリア）
+ *  - fixable: 是正可能（今はNGだが補修・是正でクリアできる＝合格に算入）
+ *  - ng:      不適合（是正困難・致命的）
+ */
+export type ChecklistStatus = "ok" | "fixable" | "ng";
+
 /** 稟議書: 購入チェックリストの1項目 */
 export interface ChecklistItem {
   id: number;
@@ -82,8 +90,8 @@ export interface ChecklistItem {
   criteria?: string;
   /** 予備項目（ユーザー追加・ラベル編集可/削除可） */
   custom?: boolean;
-  /** true = OK(1) / false = NG(0) */
-  ok: boolean;
+  /** 判定状態（適合/是正可能/不適合）。是正可能は合格に算入する */
+  status: ChecklistStatus;
 }
 
 /** 稟議書: 再販スケジュールの1ステップ（日付） */

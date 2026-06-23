@@ -3,7 +3,7 @@ import React from "react";
 import { Document, View, Text, BasePage, styles, COLORS, ApprovalRow } from "./common";
 import { Company, Project, PROPERTY_TYPE_LABELS } from "@/lib/types";
 import { calculate } from "@/lib/calc";
-import { countOk, defaultPassLine } from "@/lib/checklist";
+import { countCleared, countStatus, defaultPassLine } from "@/lib/checklist";
 import { fmtMan, fmtPct } from "@/lib/format";
 
 function KV({ label, value }: { label: string; value?: string | number }) {
@@ -20,10 +20,17 @@ function KV({ label, value }: { label: string; value?: string | number }) {
 export function RingiPdf({ project, company }: { project: Project; company?: Company }) {
   const r = project.ringi;
   const res = calculate(project.calc);
-  const ok = countOk(r.checklist);
+  const okCount = countStatus(r.checklist, "ok");
+  const fixableCount = countStatus(r.checklist, "fixable");
+  const ngCount = countStatus(r.checklist, "ng");
+  const cleared = countCleared(r.checklist); // 適合＋是正可能（合格に算入）
   const passLine = r.checklistPassLine ?? defaultPassLine(project.propertyType);
-  const isPass = ok >= passLine;
+  const isPass = cleared >= passLine;
   const isMansion = project.propertyType === "mansion";
+
+  // 判定状態ごとの記号・色（✓適合 / △是正可能 / ×不適合）
+  const mark = (s: string) => (s === "ok" ? "✓" : s === "fixable" ? "△" : "×");
+  const markColor = (s: string) => (s === "ok" ? COLORS.brand : s === "fixable" ? "#d97706" : "#dc2626");
 
   return (
     <Document>
@@ -80,7 +87,7 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
           }}
         >
           <Text style={{ fontSize: 9 }}>
-            OK {ok} / {r.checklist.length}　（合格ライン：{passLine} 以上）
+            クリア {cleared} / 合格ライン {passLine}　（適合{okCount}・是正可能{fixableCount}・不適合{ngCount}）
           </Text>
           <Text style={{ fontSize: 11, fontWeight: "bold", color: isPass ? COLORS.brand : "#dc2626" }}>
             判定：{isPass ? "合格" : "不合格"}
@@ -92,11 +99,14 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
             .filter((item) => !(item.custom && (item.label ?? "").trim() === ""))
             .map((item) => (
               <View key={item.id} style={{ width: "50%", flexDirection: "row", paddingVertical: 1.5 }}>
-                <Text style={{ width: 12, color: item.ok ? COLORS.brand : "#dc2626", fontWeight: "bold" }}>
-                  {item.ok ? "✓" : "×"}
+                <Text style={{ width: 12, color: markColor(item.status), fontWeight: "bold" }}>
+                  {mark(item.status)}
                 </Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 7 }}>{item.id}.{item.label}</Text>
+                  <Text style={{ fontSize: 7 }}>
+                    {item.id}.{item.label}
+                    {item.status === "fixable" ? "（是正可能）" : ""}
+                  </Text>
                   {item.criteria ? (
                     <Text style={{ fontSize: 6, color: COLORS.muted }}>基準: {item.criteria}</Text>
                   ) : null}

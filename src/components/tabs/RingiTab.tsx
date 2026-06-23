@@ -6,9 +6,9 @@
 import { useMemo } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardHeader, Field, TextInput, TextArea, Toggle, Badge, Button, NumberInput, cn } from "@/components/ui";
-import { ChecklistItem, RingiData } from "@/lib/types";
+import { ChecklistItem, ChecklistStatus, RingiData } from "@/lib/types";
 import { calculate } from "@/lib/calc";
-import { countOk, addSpareItem, coreItemCount, defaultPassLine } from "@/lib/checklist";
+import { countCleared, countStatus, addSpareItem, coreItemCount, defaultPassLine } from "@/lib/checklist";
 import { fmtMan, fmtPct } from "@/lib/format";
 
 export function RingiTab() {
@@ -36,12 +36,15 @@ export function RingiTab() {
     setRingi({ checklist: addSpareItem(r.checklist) });
   }
 
-  const okCount = countOk(r.checklist);
+  const okCount = countStatus(r.checklist, "ok"); // 適合
+  const fixableCount = countStatus(r.checklist, "fixable"); // 是正可能
+  const ngCount = countStatus(r.checklist, "ng"); // 不適合
+  const clearedCount = countCleared(r.checklist); // 適合＋是正可能（合格に算入）
   const total = r.checklist.length;
   const core = coreItemCount(current.propertyType); // 予備を除く満点目安
   const passLine = r.checklistPassLine ?? defaultPassLine(current.propertyType);
-  // 合格ライン（OK数）以上なら「合格」。
-  const isPass = okCount >= passLine;
+  // クリア数（適合＋是正可能）が合格ライン以上なら「合格」。
+  const isPass = clearedCount >= passLine;
 
   return (
     <div className="space-y-4">
@@ -163,20 +166,26 @@ export function RingiTab() {
       <Card>
         <CardHeader
           title="購入チェックリスト"
-          desc="物件種別に応じた項目・基準。各項目 OK/NG を切替（基準は編集可）"
+          desc="各項目を 適合／是正可能／不適合 で判定（是正可能は合格に算入）。基準は編集可"
           action={<Badge tone={isPass ? "good" : "bad"}>{isPass ? "合格" : "不合格"}</Badge>}
         />
         {/* 合格判定サマリー（合格ラインは編集可） */}
         <div className="flex items-center justify-between gap-3 border-b border-border bg-surface-2 px-4 py-3">
           <div className="text-sm">
-            <span className="text-muted">現在の OK 数</span>
-            <span className={cn("ml-2 text-lg font-bold", isPass ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400")}>
-              {okCount}
-            </span>
-            <span className="text-muted"> / {total} 項目（基本{core}＋予備）</span>
+            <div>
+              <span className="text-muted">クリア数（適合＋是正可能）</span>
+              <span className={cn("ml-2 text-lg font-bold", isPass ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400")}>
+                {clearedCount}
+              </span>
+              <span className="text-muted"> / 合格ライン {passLine}</span>
+            </div>
+            <div className="mt-0.5 text-[11px] text-muted">
+              内訳：適合 {okCount}・<span className="text-amber-600 dark:text-amber-400">是正可能 {fixableCount}</span>・
+              <span className="text-red-600 dark:text-red-400">不適合 {ngCount}</span>（全{total}項目／基本{core}＋予備）
+            </div>
           </div>
-          <div className="w-32">
-            <Field label="合格ライン（OK数）">
+          <div className="w-28 shrink-0">
+            <Field label="合格ライン">
               <NumberInput
                 value={passLine}
                 suffix="以上"
@@ -188,8 +197,8 @@ export function RingiTab() {
         <div className="divide-y divide-border">
           {r.checklist.map((item, idx) => (
             <div key={item.id} className="px-4 py-2.5">
-              <div className="flex items-center gap-3">
-                <span className="w-5 shrink-0 text-xs font-semibold text-muted">{item.id}</span>
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 w-5 shrink-0 text-xs font-semibold text-muted">{item.id}</span>
                 {item.custom ? (
                   // 予備項目: ラベルを手打ち編集できる
                   <TextInput
@@ -199,9 +208,8 @@ export function RingiTab() {
                     className="flex-1 text-xs"
                   />
                 ) : (
-                  <span className={cn("flex-1 text-xs", item.ok ? "text-fg" : "text-muted")}>{item.label}</span>
+                  <span className={cn("flex-1 text-xs", item.status !== "ng" ? "text-fg" : "text-muted")}>{item.label}</span>
                 )}
-                <Toggle checked={item.ok} onChange={(v) => patchChecklistItem(idx, { ok: v })} />
                 {item.custom && (
                   <button
                     type="button"
@@ -222,6 +230,10 @@ export function RingiTab() {
                   onChange={(e) => patchChecklistItem(idx, { criteria: e.target.value })}
                   className="flex-1 border-transparent bg-transparent px-1.5 py-1 text-[11px] text-muted focus:border-brand-500 focus:bg-surface-2"
                 />
+              </div>
+              {/* 判定（3段階） */}
+              <div className="mt-2 pl-8">
+                <StatusSeg value={item.status} onChange={(s) => patchChecklistItem(idx, { status: s })} />
               </div>
             </div>
           ))}
@@ -301,6 +313,40 @@ function SummaryRow({ label, value, strong }: { label: string; value: number; st
       <span className={cn(strong ? "text-lg font-bold text-fg" : "text-sm font-medium text-fg")}>
         {fmtMan(value)} 万円
       </span>
+    </div>
+  );
+}
+
+/** チェック項目の3段階判定セグメント（適合／是正可能／不適合） */
+function StatusSeg({
+  value,
+  onChange,
+}: {
+  value: ChecklistStatus;
+  onChange: (s: ChecklistStatus) => void;
+}) {
+  const opts: { v: ChecklistStatus; label: string; on: string; off: string }[] = [
+    { v: "ok", label: "適合", on: "bg-emerald-500 text-white", off: "text-emerald-600 dark:text-emerald-400" },
+    { v: "fixable", label: "是正可能", on: "bg-amber-500 text-white", off: "text-amber-600 dark:text-amber-400" },
+    { v: "ng", label: "不適合", on: "bg-red-500 text-white", off: "text-red-600 dark:text-red-400" },
+  ];
+  return (
+    <div className="inline-flex overflow-hidden rounded-lg border border-border">
+      {opts.map((o, i) => (
+        <button
+          key={o.v}
+          type="button"
+          aria-pressed={value === o.v}
+          onClick={() => onChange(o.v)}
+          className={cn(
+            "px-3 py-1.5 text-xs font-semibold transition-base",
+            i > 0 && "border-l border-border",
+            value === o.v ? o.on : cn("bg-surface-2 hover:bg-border/40", o.off)
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }
