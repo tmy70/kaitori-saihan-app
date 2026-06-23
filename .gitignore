@@ -7,6 +7,7 @@
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
+*.lnk
 .ds-sync/
 ds-bundle/
 .design-sync/.cache/
