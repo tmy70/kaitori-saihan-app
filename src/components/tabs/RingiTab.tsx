@@ -5,10 +5,10 @@
 // ============================================================
 import { useMemo } from "react";
 import { useStore } from "@/lib/store";
-import { Card, CardHeader, Field, TextInput, TextArea, Toggle, Badge, cn } from "@/components/ui";
-import { RingiData } from "@/lib/types";
+import { Card, CardHeader, Field, TextInput, TextArea, Toggle, Badge, Button, NumberInput, cn } from "@/components/ui";
+import { ChecklistItem, RingiData } from "@/lib/types";
 import { calculate } from "@/lib/calc";
-import { countOk } from "@/lib/checklist";
+import { countOk, addSpareItem, coreItemCount, defaultPassLine } from "@/lib/checklist";
 import { fmtMan, fmtPct } from "@/lib/format";
 
 export function RingiTab() {
@@ -22,7 +22,26 @@ export function RingiTab() {
   function setRingi(patch: Partial<RingiData>) {
     update({ ringi: { ...r, ...patch } });
   }
+
+  // チェックリスト1項目の部分更新（OK切替・基準/ラベルの編集）
+  function patchChecklistItem(idx: number, patch: Partial<ChecklistItem>) {
+    const next = [...r.checklist];
+    next[idx] = { ...next[idx], ...patch };
+    setRingi({ checklist: next });
+  }
+  function removeChecklistItem(idx: number) {
+    setRingi({ checklist: r.checklist.filter((_, i) => i !== idx) });
+  }
+  function addSpare() {
+    setRingi({ checklist: addSpareItem(r.checklist) });
+  }
+
   const okCount = countOk(r.checklist);
+  const total = r.checklist.length;
+  const core = coreItemCount(current.propertyType); // 予備を除く満点目安
+  const passLine = r.checklistPassLine ?? defaultPassLine(current.propertyType);
+  // 合格ライン（OK数）以上なら「合格」。
+  const isPass = okCount >= passLine;
 
   return (
     <div className="space-y-4">
@@ -140,32 +159,78 @@ export function RingiTab() {
         </div>
       </Card>
 
-      {/* 購入チェックリスト */}
+      {/* 購入チェックリスト（物件種別ごとに項目・基準が変わる） */}
       <Card>
         <CardHeader
           title="購入チェックリスト"
-          desc="各項目 OK/NG を切替"
-          action={
-            <Badge tone={okCount >= 23 ? "good" : okCount >= 18 ? "warn" : "bad"}>
-              OK {okCount} / {r.checklist.length}
-            </Badge>
-          }
+          desc="物件種別に応じた項目・基準。各項目 OK/NG を切替（基準は編集可）"
+          action={<Badge tone={isPass ? "good" : "bad"}>{isPass ? "合格" : "不合格"}</Badge>}
         />
+        {/* 合格判定サマリー（合格ラインは編集可） */}
+        <div className="flex items-center justify-between gap-3 border-b border-border bg-surface-2 px-4 py-3">
+          <div className="text-sm">
+            <span className="text-muted">現在の OK 数</span>
+            <span className={cn("ml-2 text-lg font-bold", isPass ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400")}>
+              {okCount}
+            </span>
+            <span className="text-muted"> / {total} 項目（基本{core}＋予備）</span>
+          </div>
+          <div className="w-32">
+            <Field label="合格ライン（OK数）">
+              <NumberInput
+                value={passLine}
+                suffix="以上"
+                onChangeNumber={(n) => setRingi({ checklistPassLine: n })}
+              />
+            </Field>
+          </div>
+        </div>
         <div className="divide-y divide-border">
           {r.checklist.map((item, idx) => (
-            <div key={item.id} className="flex items-center gap-3 px-4 py-2.5">
-              <span className="w-5 shrink-0 text-xs font-semibold text-muted">{item.id}</span>
-              <span className={cn("flex-1 text-xs", item.ok ? "text-fg" : "text-muted")}>{item.label}</span>
-              <Toggle
-                checked={item.ok}
-                onChange={(v) => {
-                  const next = [...r.checklist];
-                  next[idx] = { ...item, ok: v };
-                  setRingi({ checklist: next });
-                }}
-              />
+            <div key={item.id} className="px-4 py-2.5">
+              <div className="flex items-center gap-3">
+                <span className="w-5 shrink-0 text-xs font-semibold text-muted">{item.id}</span>
+                {item.custom ? (
+                  // 予備項目: ラベルを手打ち編集できる
+                  <TextInput
+                    value={item.label}
+                    placeholder="予備項目を入力"
+                    onChange={(e) => patchChecklistItem(idx, { label: e.target.value })}
+                    className="flex-1 text-xs"
+                  />
+                ) : (
+                  <span className={cn("flex-1 text-xs", item.ok ? "text-fg" : "text-muted")}>{item.label}</span>
+                )}
+                <Toggle checked={item.ok} onChange={(v) => patchChecklistItem(idx, { ok: v })} />
+                {item.custom && (
+                  <button
+                    type="button"
+                    onClick={() => removeChecklistItem(idx)}
+                    className="shrink-0 rounded-lg px-2 py-1 text-[11px] text-red-600 hover:bg-red-500/10 dark:text-red-400"
+                    aria-label="この予備項目を削除"
+                  >
+                    削除
+                  </button>
+                )}
+              </div>
+              {/* 判定基準（各項目の下に常時表示・編集可） */}
+              <div className="mt-1 flex items-center gap-1.5 pl-8">
+                <span className="shrink-0 text-[10px] font-medium text-muted">基準</span>
+                <TextInput
+                  value={item.criteria ?? ""}
+                  placeholder={item.custom ? "基準を入力（任意）" : "基準を入力"}
+                  onChange={(e) => patchChecklistItem(idx, { criteria: e.target.value })}
+                  className="flex-1 border-transparent bg-transparent px-1.5 py-1 text-[11px] text-muted focus:border-brand-500 focus:bg-surface-2"
+                />
+              </div>
             </div>
           ))}
+        </div>
+        {/* 予備項目を追加 */}
+        <div className="border-t border-border p-3">
+          <Button variant="secondary" className="w-full min-h-[40px] text-xs" onClick={addSpare}>
+            ＋ 予備項目を追加
+          </Button>
         </div>
       </Card>
 

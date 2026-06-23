@@ -4,7 +4,7 @@
 // 個人情報は含めず、物件名・所在地はダミー。
 // ============================================================
 import { CalcInput, PropertyType, Project } from "./types";
-import { createChecklist, createSchedule } from "./checklist";
+import { createChecklist, createSchedule, defaultPassLine } from "./checklist";
 import { genId, today } from "./format";
 import { DEFAULT_COMPANY_ID } from "./companies";
 
@@ -151,7 +151,8 @@ export function createSampleProject(type: PropertyType, companyId = DEFAULT_COMP
       assessMethod2: "",
       appealPoint: "",
       rosenka: "",
-      checklist: createChecklist(),
+      checklist: createChecklist(type),
+      checklistPassLine: defaultPassLine(type),
       schedule: createSchedule(),
       approverStaff: "",
       approverManager: "",

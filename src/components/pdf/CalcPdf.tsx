@@ -12,7 +12,7 @@ function Rows({ items, values }: { items: ItemDef[]; values: Record<string, numb
     <>
       {items.map((it) => (
         <View key={it.key} style={styles.row}>
-          <Text style={styles.cellLabel}>{it.label}</Text>
+          <Text style={styles.cellLabel}>{it.label || "（費目名未入力）"}</Text>
           <Text style={styles.cellValue}>{fmtMan(values[it.key] ?? 0)} 万円</Text>
         </View>
       ))}
@@ -34,6 +34,10 @@ function TotalRow({ label, value, accent }: { label: string; value: number; acce
 export function CalcPdf({ project, company }: { project: Project; company?: Company }) {
   const c = project.calc;
   const r = calculate(c);
+  // 既定の費目 ＋ 追加費目（手動で足した費目）を結合して出力する
+  const acqItems: ItemDef[] = [...ACQUISITION_ITEMS[c.propertyType], ...(c.acquisitionExtra ?? [])];
+  const expItems: ItemDef[] = [...EXPENSE_ITEMS, ...(c.expensesExtra ?? [])];
+  const sellItems: ItemDef[] = [...SELLING_ITEMS, ...(c.sellingExtra ?? [])];
   return (
     <Document>
       <BasePage company={company}>
@@ -52,11 +56,11 @@ export function CalcPdf({ project, company }: { project: Project; company?: Comp
         </View>
 
         <Text style={styles.sectionTitle}>取得原価</Text>
-        <Rows items={ACQUISITION_ITEMS[c.propertyType]} values={c.acquisition} />
+        <Rows items={acqItems} values={c.acquisition} />
         <TotalRow label="取得原価 合計" value={r.acquisitionCost} />
 
         <Text style={styles.sectionTitle}>経費</Text>
-        <Rows items={EXPENSE_ITEMS} values={c.expenses} />
+        <Rows items={expItems} values={c.expenses} />
         <TotalRow label="経費 合計" value={r.expensesTotal} />
 
         <TotalRow label="売上原価（取得原価＋経費）" value={r.costOfSales} />
@@ -69,7 +73,7 @@ export function CalcPdf({ project, company }: { project: Project; company?: Comp
         </View>
 
         <Text style={styles.sectionTitle}>販売経費</Text>
-        <Rows items={SELLING_ITEMS} values={c.selling} />
+        <Rows items={sellItems} values={c.selling} />
         <TotalRow label="販売経費 合計" value={r.sellingExpenses} />
 
         <TotalRow label="営業利益（粗利益−販売経費）" value={r.operatingProfit} accent />

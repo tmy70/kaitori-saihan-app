@@ -6,7 +6,7 @@
 - AI事業計画書：**ブラウザ版 Claude（claude.ai）に手貼り**方式なので **API課金なし**
 - データ：各自の端末のブラウザ内（IndexedDB）に保存（端末・人をまたいだ共有はなし）
 
-> すべて **ローカル複製 `C:\dev\kaitori-saihan-app`** で操作します（Google Drive 上では動きません）。
+> すべて **ローカル本体 `C:\Users\ViVi-n16\claude-work\不動産買取再販 計算・稟議・事業計画書アプリ`** で操作します（Google Drive 上では動きません）。
 
 ## 前提
 - GitHub アカウント（無料）
@@ -15,7 +15,7 @@
 ## 手順A：GitHub CLI を使う場合（簡単）
 PowerShell で（このセッションで実行するなら先頭に `! ` を付けるとログインがこの画面に出ます）：
 ```powershell
-cd C:\dev\kaitori-saihan-app
+cd "C:\Users\ViVi-n16\claude-work\不動産買取再販 計算・稟議・事業計画書アプリ"
 gh auth login                         # ブラウザで認証（初回のみ）
 gh repo create kaitori-saihan-app --private --source . --push
 ```
@@ -27,7 +27,7 @@ gh repo create kaitori-saihan-app --private --source . --push
 1. github.com で **New repository**（名前例：`kaitori-saihan-app`、Public 推奨）を作成。
 2. PowerShell で push：
    ```powershell
-   cd C:\dev\kaitori-saihan-app
+   cd "C:\Users\ViVi-n16\claude-work\不動産買取再販 計算・稟議・事業計画書アプリ"
    git remote add origin https://github.com/<ユーザー名>/kaitori-saihan-app.git
    git branch -M main
    git push -u origin main
@@ -45,7 +45,7 @@ gh repo create kaitori-saihan-app --private --source . --push
 
 ## 更新のしかた（コードを直したとき）
 ```powershell
-cd C:\dev\kaitori-saihan-app
+cd "C:\Users\ViVi-n16\claude-work\不動産買取再販 計算・稟議・事業計画書アプリ"
 git add -A
 git commit -m "更新内容"
 git push          # push するだけで Actions が再ビルド→自動再公開

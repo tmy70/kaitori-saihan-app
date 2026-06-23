@@ -120,7 +120,8 @@ export function BankPlanPdf({ project, company }: { project: Project; company?: 
   return (
     <Document>
       <BasePage company={company}>
-        <Text style={styles.docTitle}>事業計画書（銀行提出用）</Text>
+        {/* 銀行提出用は表面に「銀行提出用」の文言を出さない（タイトルは「事業計画書」のみ） */}
+        <Text style={styles.docTitle}>事業計画書</Text>
         <Text style={{ textAlign: "center", color: COLORS.muted, marginBottom: 8 }}>
           発行：{company?.name ?? ""}　／　案件：{project.name}
         </Text>

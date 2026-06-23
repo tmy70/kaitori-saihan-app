@@ -3,7 +3,7 @@ import React from "react";
 import { Document, View, Text, BasePage, styles, COLORS, ApprovalRow } from "./common";
 import { Company, Project, PROPERTY_TYPE_LABELS } from "@/lib/types";
 import { calculate } from "@/lib/calc";
-import { countOk, ngLabels } from "@/lib/checklist";
+import { countOk, defaultPassLine } from "@/lib/checklist";
 import { fmtMan, fmtPct } from "@/lib/format";
 
 function KV({ label, value }: { label: string; value?: string | number }) {
@@ -21,7 +21,8 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
   const r = project.ringi;
   const res = calculate(project.calc);
   const ok = countOk(r.checklist);
-  const ngs = ngLabels(r.checklist);
+  const passLine = r.checklistPassLine ?? defaultPassLine(project.propertyType);
+  const isPass = ok >= passLine;
   const isMansion = project.propertyType === "mansion";
 
   return (
@@ -65,22 +66,44 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
         <KV label="路線価" value={r.rosenka} />
         <KV label="アピールポイント" value={r.appealPoint} />
 
-        <Text style={styles.sectionTitle}>購入チェックリスト（OK {ok} / {r.checklist.length}）</Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-          {r.checklist.map((item) => (
-            <View key={item.id} style={{ width: "50%", flexDirection: "row", paddingVertical: 1 }}>
-              <Text style={{ width: 12, color: item.ok ? COLORS.brand : "#dc2626", fontWeight: "bold" }}>
-                {item.ok ? "✓" : "×"}
-              </Text>
-              <Text style={{ flex: 1, fontSize: 7 }}>{item.id}.{item.label}</Text>
-            </View>
-          ))}
-        </View>
-        {ngs.length > 0 && (
-          <Text style={{ fontSize: 7.5, color: "#dc2626", marginTop: 3 }}>
-            NG項目: {ngs.join(" / ")}
+        <Text style={styles.sectionTitle}>購入チェックリスト</Text>
+        {/* 合否判定（合格ライン以上のOKで合格） */}
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            backgroundColor: COLORS.light,
+            paddingVertical: 3,
+            paddingHorizontal: 6,
+            marginBottom: 4,
+          }}
+        >
+          <Text style={{ fontSize: 9 }}>
+            OK {ok} / {r.checklist.length}　（合格ライン：{passLine} 以上）
           </Text>
-        )}
+          <Text style={{ fontSize: 11, fontWeight: "bold", color: isPass ? COLORS.brand : "#dc2626" }}>
+            判定：{isPass ? "合格" : "不合格"}
+          </Text>
+        </View>
+        <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+          {r.checklist
+            // 未入力の予備項目は出力しない
+            .filter((item) => !(item.custom && (item.label ?? "").trim() === ""))
+            .map((item) => (
+              <View key={item.id} style={{ width: "50%", flexDirection: "row", paddingVertical: 1.5 }}>
+                <Text style={{ width: 12, color: item.ok ? COLORS.brand : "#dc2626", fontWeight: "bold" }}>
+                  {item.ok ? "✓" : "×"}
+                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 7 }}>{item.id}.{item.label}</Text>
+                  {item.criteria ? (
+                    <Text style={{ fontSize: 6, color: COLORS.muted }}>基準: {item.criteria}</Text>
+                  ) : null}
+                </View>
+              </View>
+            ))}
+        </View>
 
         <Text style={styles.sectionTitle} break>
           買取からの再販スケジュール

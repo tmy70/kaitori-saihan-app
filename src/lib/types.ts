@@ -29,6 +29,16 @@ export interface Company {
  */
 export type ItemValues = Record<string, number>;
 
+/**
+ * ユーザーが手動で追加した費目（追加費目）
+ * key: 内部キー（金額は ItemValues 側に同じ key で格納する）
+ * label: 表示名（手打ち編集可）
+ */
+export interface CustomItem {
+  key: string;
+  label: string;
+}
+
 /** 計算書の入力データ */
 export interface CalcInput {
   propertyType: PropertyType;
@@ -39,6 +49,10 @@ export interface CalcInput {
   expenses: ItemValues;
   // 販売経費の費目
   selling: ItemValues;
+  // 各グループの追加費目（ユーザーが手動で足した費目の表示名定義）
+  acquisitionExtra?: CustomItem[];
+  expensesExtra?: CustomItem[];
+  sellingExtra?: CustomItem[];
   // 補助計算用の入力
   assessedValueLand?: number; // 不動産取得税: 土地評価額（万円）
   assessedValueBuilding?: number; // 不動産取得税: 建物評価額（万円）
@@ -61,7 +75,13 @@ export interface CalcResult {
 /** 稟議書: 購入チェックリストの1項目 */
 export interface ChecklistItem {
   id: number;
+  /** 安定キー（物件種別をまたいで同一項目を識別。予備項目は spare-* ） */
+  key: string;
   label: string;
+  /** OK/NGの判定基準（数値含む。画面で編集可・各項目の下に常時表示） */
+  criteria?: string;
+  /** 予備項目（ユーザー追加・ラベル編集可/削除可） */
+  custom?: boolean;
   /** true = OK(1) / false = NG(0) */
   ok: boolean;
 }
@@ -104,6 +124,8 @@ export interface RingiData {
   rosenka: string; // 路線価
   // チェックリスト・スケジュール
   checklist: ChecklistItem[];
+  /** 購入判定の合格ライン（このOK数以上で「合格」。種別ごとの既定値あり・編集可） */
+  checklistPassLine?: number;
   schedule: ScheduleStep[];
   // 承認欄メモ（氏名等は任意）
   approverStaff: string;

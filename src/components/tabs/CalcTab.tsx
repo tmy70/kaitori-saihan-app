@@ -5,7 +5,7 @@
 // ============================================================
 import { useMemo } from "react";
 import { useStore } from "@/lib/store";
-import { Card, CardHeader, NumberInput, Field, Button, Badge, Select, cn } from "@/components/ui";
+import { Card, CardHeader, NumberInput, TextInput, Field, Button, Badge, Select, cn } from "@/components/ui";
 import {
   ACQUISITION_ITEMS,
   EXPENSE_ITEMS,
@@ -19,8 +19,18 @@ import {
   calcAcquisitionTax,
   calcTaxProration,
 } from "@/lib/calc";
-import { fmtMan, fmtPct } from "@/lib/format";
-import { CalcInput, PropertyType, PROPERTY_TYPE_LABELS } from "@/lib/types";
+import { reconcileChecklist, defaultPassLine } from "@/lib/checklist";
+import { fmtMan, fmtPct, genId } from "@/lib/format";
+import { CalcInput, CustomItem, PropertyType, PROPERTY_TYPE_LABELS } from "@/lib/types";
+
+/** 計算グループ名 → 追加費目を格納する CalcInput のフィールド名 */
+const EXTRA_FIELD = {
+  acquisition: "acquisitionExtra",
+  expenses: "expensesExtra",
+  selling: "sellingExtra",
+} as const;
+
+type CalcGroup = keyof typeof EXTRA_FIELD;
 
 export function CalcTab() {
   const current = useStore((s) => s.current)!;
@@ -32,12 +42,39 @@ export function CalcTab() {
   function setCalc(patch: Partial<CalcInput>) {
     update({ calc: { ...calc, ...patch } });
   }
-  function setItem(group: "acquisition" | "expenses" | "selling", key: string, v: number) {
+  function setItem(group: CalcGroup, key: string, v: number) {
     setCalc({ [group]: { ...calc[group], [key]: v } } as Partial<CalcInput>);
   }
   function changeType(t: PropertyType) {
-    // タイプ変更: 共通キーは保持しつつ、計算入力のタイプを更新
-    update({ propertyType: t, calc: { ...calc, propertyType: t } });
+    // タイプ変更: 計算入力のタイプを更新し、チェックリストと合格ラインも種別に合わせて再構成
+    const checklist = reconcileChecklist(current.ringi.checklist, t);
+    update({
+      propertyType: t,
+      calc: { ...calc, propertyType: t },
+      ringi: { ...current.ringi, checklist, checklistPassLine: defaultPassLine(t) },
+    });
+  }
+
+  // ---------------- 追加費目（手動で足す費目）の操作 ----------------
+  function extraOf(group: CalcGroup): CustomItem[] {
+    return calc[EXTRA_FIELD[group]] ?? [];
+  }
+  function addCustom(group: CalcGroup) {
+    const field = EXTRA_FIELD[group];
+    const next = [...extraOf(group), { key: "x-" + genId(), label: "" }];
+    setCalc({ [field]: next } as Partial<CalcInput>);
+  }
+  function setCustomLabel(group: CalcGroup, key: string, label: string) {
+    const field = EXTRA_FIELD[group];
+    const next = extraOf(group).map((c) => (c.key === key ? { ...c, label } : c));
+    setCalc({ [field]: next } as Partial<CalcInput>);
+  }
+  function removeCustom(group: CalcGroup, key: string) {
+    const field = EXTRA_FIELD[group];
+    const next = extraOf(group).filter((c) => c.key !== key);
+    const values = { ...calc[group] };
+    delete values[key];
+    setCalc({ [field]: next, [group]: values } as Partial<CalcInput>);
   }
 
   const acqItems = ACQUISITION_ITEMS[calc.propertyType];
@@ -110,8 +147,12 @@ export function CalcTab() {
         total={result.acquisitionCost}
         items={acqItems}
         values={calc.acquisition}
+        extra={extraOf("acquisition")}
         onChange={(k, v) => setItem("acquisition", k, v)}
         onAuto={(item) => applyAuto(item, "acquisition")}
+        onAddCustom={() => addCustom("acquisition")}
+        onCustomLabel={(k, label) => setCustomLabel("acquisition", k, label)}
+        onRemoveCustom={(k) => removeCustom("acquisition", k)}
       />
 
       {/* 経費 */}
@@ -120,8 +161,12 @@ export function CalcTab() {
         total={result.expensesTotal}
         items={EXPENSE_ITEMS}
         values={calc.expenses}
+        extra={extraOf("expenses")}
         onChange={(k, v) => setItem("expenses", k, v)}
         onAuto={(item) => applyAuto(item, "expenses")}
+        onAddCustom={() => addCustom("expenses")}
+        onCustomLabel={(k, label) => setCustomLabel("expenses", k, label)}
+        onRemoveCustom={(k) => removeCustom("expenses", k)}
       />
 
       {/* 売上原価・粗利の中間サマリー */}
@@ -136,8 +181,12 @@ export function CalcTab() {
         total={result.sellingExpenses}
         items={SELLING_ITEMS}
         values={calc.selling}
+        extra={extraOf("selling")}
         onChange={(k, v) => setItem("selling", k, v)}
         onAuto={(item) => applyAuto(item, "selling")}
+        onAddCustom={() => addCustom("selling")}
+        onCustomLabel={(k, label) => setCustomLabel("selling", k, label)}
+        onRemoveCustom={(k) => removeCustom("selling", k)}
       />
 
       {/* 営業利益サマリー */}
@@ -153,20 +202,29 @@ function ItemGroup({
   total,
   items,
   values,
+  extra,
   onChange,
   onAuto,
+  onAddCustom,
+  onCustomLabel,
+  onRemoveCustom,
 }: {
   title: string;
   total: number;
   items: ItemDef[];
   values: Record<string, number>;
+  extra: CustomItem[];
   onChange: (key: string, v: number) => void;
   onAuto: (item: ItemDef) => void;
+  onAddCustom: () => void;
+  onCustomLabel: (key: string, label: string) => void;
+  onRemoveCustom: (key: string) => void;
 }) {
   return (
     <Card>
       <CardHeader title={title} action={<Badge tone="brand">{fmtMan(total)} 万円</Badge>} />
       <div className="divide-y divide-border">
+        {/* 既定の費目 */}
         {items.map((it) => (
           <div key={it.key} className="px-4 py-2.5">
             <div className="flex items-center justify-between gap-2">
@@ -187,6 +245,38 @@ function ItemGroup({
             </div>
           </div>
         ))}
+
+        {/* 追加費目（手動で足した費目。費目名を編集・削除できる） */}
+        {extra.map((c) => (
+          <div key={c.key} className="px-4 py-2.5">
+            <div className="flex items-center gap-2">
+              <TextInput
+                value={c.label}
+                placeholder="費目名を入力"
+                onChange={(e) => onCustomLabel(c.key, e.target.value)}
+                className="flex-1 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => onRemoveCustom(c.key)}
+                className="shrink-0 rounded-lg px-2 py-1.5 text-xs text-red-600 hover:bg-red-500/10 dark:text-red-400"
+                aria-label="この費目を削除"
+              >
+                削除
+              </button>
+            </div>
+            <div className="mt-1.5">
+              <NumberInput value={values[c.key] ?? 0} onChangeNumber={(n) => onChange(c.key, n)} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 費目を追加 */}
+      <div className="border-t border-border p-3">
+        <Button variant="secondary" className="w-full min-h-[40px] text-xs" onClick={onAddCustom}>
+          ＋ 費目を追加
+        </Button>
       </div>
     </Card>
   );

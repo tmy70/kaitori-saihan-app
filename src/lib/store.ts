@@ -4,7 +4,30 @@
 // ============================================================
 import { create } from "zustand";
 import { AppSettings, Company, Project } from "./types";
+import { reconcileChecklist, defaultPassLine } from "./checklist";
 import * as db from "./db";
+
+/**
+ * 読み込んだ案件を現行のデータ構造に正規化する。
+ *  ・チェックリストを物件種別に合わせて再構成（旧データの移行を含む）
+ *  ・追加費目の配列が無い場合は空配列で補う
+ */
+function normalizeProject(p: Project): Project {
+  return {
+    ...p,
+    calc: {
+      ...p.calc,
+      acquisitionExtra: p.calc.acquisitionExtra ?? [],
+      expensesExtra: p.calc.expensesExtra ?? [],
+      sellingExtra: p.calc.sellingExtra ?? [],
+    },
+    ringi: {
+      ...p.ringi,
+      checklist: reconcileChecklist(p.ringi.checklist, p.propertyType),
+      checklistPassLine: p.ringi.checklistPassLine ?? defaultPassLine(p.propertyType),
+    },
+  };
+}
 
 interface AppState {
   companies: Company[];
@@ -45,7 +68,8 @@ export const useStore = create<AppState>((set, get) => ({
     set({ companies });
   },
 
-  setCurrent: (p) => set({ current: p, lastSavedAt: p?.updatedAt ?? null }),
+  setCurrent: (p) =>
+    set({ current: p ? normalizeProject(p) : null, lastSavedAt: p?.updatedAt ?? null }),
 
   update: (patch) => {
     const cur = get().current;
