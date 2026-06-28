@@ -173,18 +173,16 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
             })}
         </View>
 
-        <Text style={styles.sectionTitle} break>
-          買取からの再販スケジュール
-        </Text>
-        {/* 2列レイアウト。日付は固定幅・右揃えで列ごとにきれいに揃える（印刷時のズレ防止） */}
+        <Text style={styles.sectionTitle}>買取からの再販スケジュール</Text>
+        {/* 2列レイアウト。工程名と日付の間に余白を確保し、日付は固定幅・右揃えで揃える */}
         <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
           {r.schedule.map((s) => (
             <View
               key={s.key}
-              style={{ width: "50%", flexDirection: "row", alignItems: "flex-start", paddingVertical: 2.5, paddingRight: 12 }}
+              style={{ width: "50%", flexDirection: "row", alignItems: "flex-start", paddingVertical: 2, paddingRight: 14 }}
             >
-              <Text style={{ fontSize: 8.5, flex: 1 }}>{s.label}</Text>
-              <Text style={{ fontSize: 8.5, fontWeight: "bold", width: 66, textAlign: "right" }}>{s.date || "—"}</Text>
+              <Text style={{ fontSize: 8.5, flex: 1, paddingRight: 6 }}>{sanitizePdfText(s.label)}</Text>
+              <Text style={{ fontSize: 8.5, fontWeight: "bold", width: 58, textAlign: "right" }}>{s.date || "—"}</Text>
             </View>
           ))}
         </View>

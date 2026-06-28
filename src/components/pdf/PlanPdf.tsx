@@ -100,6 +100,14 @@ function FinanceTable({ project }: { project: Project }) {
 function SimulationSection({ project }: { project: Project }) {
   const base = calculate(project.calc);
   const calc = project.calc;
+  // 坪単価の基準坪数（土地・マンションは坪数、分譲地は区画合計坪数）。0なら坪単価列は出さない
+  const tsuboForUnit =
+    calc.propertyType === "subdivision"
+      ? sumLotsTsubo(calc.lots)
+      : usesTsuboPrice(calc.propertyType)
+      ? calc.tsubo ?? 0
+      : 0;
+  const showUnit = tsuboForUnit > 0;
   const rows = project.scenarios.map((s) => {
     const sellPrice = calc.sellPrice + s.sellPriceDelta;
     const acquisitionCost = base.acquisitionCost + s.costDelta;
@@ -109,35 +117,44 @@ function SimulationSection({ project }: { project: Project }) {
     const sellingExpenses = base.sellingExpenses - oldBrokerage + calcBrokerage(sellPrice);
     const operatingProfit = grossProfit - sellingExpenses;
     const operatingMargin = sellPrice > 0 ? operatingProfit / sellPrice : 0;
-    return { label: s.label, sellPrice, grossProfit, operatingProfit, operatingMargin };
+    const unitPrice = tsuboUnitPrice(sellPrice, tsuboForUnit);
+    return { label: s.label, sellPrice, unitPrice, grossProfit, operatingProfit, operatingMargin };
   });
   const otherSelling = base.sellingExpenses - (calc.selling.sellBrokerage ?? 0);
   const be0 = breakEvenPrice(base.costOfSales, 0, otherSelling, 0);
   const be10 = breakEvenPrice(base.costOfSales, 0, otherSelling, 0.1);
 
+  // 坪単価列の有無で列幅を切替
+  const w = showUnit
+    ? { name: "22%", price: "17%", unit: "16%", gross: "17%", op: "17%", rate: "11%" }
+    : { name: "28%", price: "20%", unit: "0%", gross: "22%", op: "20%", rate: "10%" };
+
   return (
     <>
-      <Text style={styles.sectionTitle} break>
-        価格変更シミュレーション
-      </Text>
+      <Text style={styles.sectionTitle}>価格変更シミュレーション</Text>
       <View style={{ flexDirection: "row", backgroundColor: COLORS.light }}>
-        <Text style={[styles.td, { width: "28%", fontWeight: "bold" }]}>シナリオ</Text>
-        <Text style={[styles.td, { width: "20%", textAlign: "right", fontWeight: "bold" }]}>販売価格</Text>
-        <Text style={[styles.td, { width: "22%", textAlign: "right", fontWeight: "bold" }]}>粗利益</Text>
-        <Text style={[styles.td, { width: "20%", textAlign: "right", fontWeight: "bold" }]}>営業利益</Text>
-        <Text style={[styles.td, { width: "10%", textAlign: "right", fontWeight: "bold" }]}>率</Text>
+        <Text style={[styles.td, { width: w.name, fontWeight: "bold" }]}>シナリオ</Text>
+        <Text style={[styles.td, { width: w.price, textAlign: "right", fontWeight: "bold" }]}>販売価格</Text>
+        {showUnit && <Text style={[styles.td, { width: w.unit, textAlign: "right", fontWeight: "bold" }]}>坪単価</Text>}
+        <Text style={[styles.td, { width: w.gross, textAlign: "right", fontWeight: "bold" }]}>粗利益</Text>
+        <Text style={[styles.td, { width: w.op, textAlign: "right", fontWeight: "bold" }]}>営業利益</Text>
+        <Text style={[styles.td, { width: w.rate, textAlign: "right", fontWeight: "bold" }]}>率</Text>
       </View>
       {rows.map((r, i) => (
         <View key={i} style={{ flexDirection: "row" }}>
-          <Text style={[styles.td, { width: "28%" }]}>{r.label}</Text>
-          <Text style={[styles.td, { width: "20%", textAlign: "right" }]}>{fmtMan(r.sellPrice)}</Text>
-          <Text style={[styles.td, { width: "22%", textAlign: "right" }]}>{fmtMan(r.grossProfit)}</Text>
-          <Text style={[styles.td, { width: "20%", textAlign: "right", color: r.operatingProfit >= 0 ? COLORS.brand : "#dc2626" }]}>
+          <Text style={[styles.td, { width: w.name }]}>{r.label}</Text>
+          <Text style={[styles.td, { width: w.price, textAlign: "right" }]}>{fmtMan(r.sellPrice)}</Text>
+          {showUnit && <Text style={[styles.td, { width: w.unit, textAlign: "right" }]}>{fmtMan(r.unitPrice)}</Text>}
+          <Text style={[styles.td, { width: w.gross, textAlign: "right" }]}>{fmtMan(r.grossProfit)}</Text>
+          <Text style={[styles.td, { width: w.op, textAlign: "right", color: r.operatingProfit >= 0 ? COLORS.brand : "#dc2626" }]}>
             {fmtMan(r.operatingProfit)}
           </Text>
-          <Text style={[styles.td, { width: "10%", textAlign: "right" }]}>{fmtPct(r.operatingMargin, 0)}</Text>
+          <Text style={[styles.td, { width: w.rate, textAlign: "right" }]}>{fmtPct(r.operatingMargin, 0)}</Text>
         </View>
       ))}
+      {showUnit && (
+        <Text style={{ fontSize: 7, color: COLORS.muted, marginTop: 2 }}>※ 坪単価の単位は万円/坪（坪数 {fmtMan(tsuboForUnit)} 坪で算定）</Text>
+      )}
       <View style={{ flexDirection: "row", marginTop: 6, gap: 8 }}>
         <Text>損益分岐 販売価格（営業利益0）：<Text style={{ fontWeight: "bold" }}>{fmtMan(be0)} 万円</Text></Text>
         <Text>目標利益率10%の価格：<Text style={{ fontWeight: "bold", color: COLORS.brand }}>{fmtMan(be10)} 万円</Text></Text>
@@ -274,9 +291,7 @@ function BankFinanceTables({ project }: { project: Project }) {
 
   return (
     <>
-      <Text style={styles.sectionTitle} break>
-        収支計画（単位：円）
-      </Text>
+      <Text style={styles.sectionTitle}>収支計画（単位：円）</Text>
       {/* 分譲地：区画別の販売明細（円） */}
       {isSubdivision && lots.length > 0 && (
         <>

@@ -45,6 +45,8 @@ export function areaLabel(sqm?: number, tsubo?: number): string {
  * PDF埋め込みフォント（Noto Sans JP サブセット）が表示できない単位記号を安全な表記へ変換する。
  * ㎡→m² / ㎥→m³ / ㎝→cm / ㎜→mm / ㎞→km / ㎏→kg（画面では問題ないがPDF用に正規化）
  */
+const CIRCLED_NUMBERS = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳";
+
 export function sanitizePdfText(s: string | number | undefined | null): string {
   if (s == null) return "";
   return String(s)
@@ -53,7 +55,9 @@ export function sanitizePdfText(s: string | number | undefined | null): string {
     .replace(/㎝/g, "cm")
     .replace(/㎜/g, "mm")
     .replace(/㎞/g, "km")
-    .replace(/㎏/g, "kg");
+    .replace(/㎏/g, "kg")
+    // 丸数字（①②…⑳）はフォントに無く化けるため「1.」形式に変換
+    .replace(/[①-⑳]/g, (ch) => `${CIRCLED_NUMBERS.indexOf(ch) + 1}.`);
 }
 
 /** 比率(0〜1) → ％文字列 */
