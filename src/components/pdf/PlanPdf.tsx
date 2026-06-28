@@ -15,6 +15,7 @@ import {
   sumLotsTsubo,
   sumLotsArea,
   avgLotUnitPrice,
+  itemVisibleInPdf,
 } from "@/lib/calc";
 import { fmtMan, fmtPct, fmtYen, manToYen } from "@/lib/format";
 import { ACQUISITION_ITEMS, EXPENSE_ITEMS, SELLING_ITEMS, ItemDef } from "@/lib/itemDefs";
@@ -155,18 +156,21 @@ function YenItemTable({
   items,
   values,
   totalLabel,
-  hideZero,
+  group,
+  pdfVisible,
+  showAll,
 }: {
   heading: string;
   items: ItemDef[];
   values: Record<string, number>;
   totalLabel: string;
-  hideZero: boolean;
+  group: string;
+  pdfVisible?: Record<string, boolean>;
+  showAll: boolean;
 }) {
   const shown = items.filter((it) => {
-    if (!hideZero) return true;
-    const v = values[it.key];
-    return Number.isFinite(v) && v !== 0 && (it.label ?? "").trim() !== "";
+    if ((it.label ?? "").trim() === "") return false;
+    return itemVisibleInPdf(values[it.key], pdfVisible?.[`${group}:${it.key}`], showAll);
   });
   const total = items.reduce((a, it) => a + (Number.isFinite(values[it.key]) ? values[it.key] : 0), 0);
   return (
@@ -235,7 +239,8 @@ function PropertyOverview({ project }: { project: Project }) {
 function BankFinanceTables({ project }: { project: Project }) {
   const c = project.calc;
   const r = calculate(c);
-  const hideZero = !(c.showZeroInPdf ?? false);
+  const showAll = c.showZeroInPdf ?? false;
+  const pdfVisible = c.pdfVisible;
   const acqItems: ItemDef[] = [...ACQUISITION_ITEMS[c.propertyType], ...(c.acquisitionExtra ?? [])];
   const expItems: ItemDef[] = [...EXPENSE_ITEMS[c.propertyType], ...(c.expensesExtra ?? [])];
   const sellItems: ItemDef[] = [...SELLING_ITEMS, ...(c.sellingExtra ?? [])];
@@ -298,9 +303,9 @@ function BankFinanceTables({ project }: { project: Project }) {
           </View>
         </>
       )}
-      <YenItemTable heading="取得原価（売上原価の内訳）" items={acqItems} values={c.acquisition} totalLabel="取得原価 合計" hideZero={hideZero} />
-      <YenItemTable heading="経費" items={expItems} values={c.expenses} totalLabel="経費 合計" hideZero={hideZero} />
-      <YenItemTable heading="販売経費" items={sellItems} values={c.selling} totalLabel="販売経費 合計" hideZero={hideZero} />
+      <YenItemTable heading="取得原価（売上原価の内訳）" items={acqItems} values={c.acquisition} totalLabel="取得原価 合計" group="acquisition" pdfVisible={pdfVisible} showAll={showAll} />
+      <YenItemTable heading="経費" items={expItems} values={c.expenses} totalLabel="経費 合計" group="expenses" pdfVisible={pdfVisible} showAll={showAll} />
+      <YenItemTable heading="販売経費" items={sellItems} values={c.selling} totalLabel="販売経費 合計" group="selling" pdfVisible={pdfVisible} showAll={showAll} />
 
       <Text style={{ fontSize: 9, fontWeight: "bold", marginTop: 8, marginBottom: 3 }}>収益見込み</Text>
       <View style={{ flexDirection: "row", backgroundColor: COLORS.light }}>

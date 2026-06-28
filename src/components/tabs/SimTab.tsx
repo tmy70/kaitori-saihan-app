@@ -6,7 +6,7 @@
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardHeader, Field, NumberInput, TextInput, Button, Badge, cn } from "@/components/ui";
-import { calculate, breakEvenPrice, calcBrokerage } from "@/lib/calc";
+import { calculate, breakEvenPrice, calcBrokerage, tsuboUnitPrice, usesTsuboPrice, sumLotsTsubo } from "@/lib/calc";
 import { CalcResult, SimScenario } from "@/lib/types";
 import { fmtMan, fmtPct, genId } from "@/lib/format";
 import {
@@ -66,6 +66,15 @@ export function SimTab() {
 
   const scenarios = current.scenarios;
   const base = useMemo(() => calculate(current.calc), [current.calc]);
+
+  // 坪単価の対象（土地・マンションは坪数、分譲地は区画合計坪数）。0なら坪単価列は出さない。
+  const tsuboForUnit =
+    current.propertyType === "subdivision"
+      ? sumLotsTsubo(current.calc.lots)
+      : usesTsuboPrice(current.propertyType)
+      ? current.calc.tsubo ?? 0
+      : 0;
+  const showUnit = tsuboForUnit > 0;
 
   const computed = useMemo(
     () => scenarios.map((s) => ({ s, ...scenarioResult(current, s, recalcBrokerage) })),
@@ -163,6 +172,7 @@ export function SimTab() {
               <tr className="border-b border-border text-muted">
                 <th className="p-2 text-left font-medium">シナリオ</th>
                 <th className="p-2 text-right font-medium">販売価格</th>
+                {showUnit && <th className="p-2 text-right font-medium">坪単価</th>}
                 <th className="p-2 text-right font-medium">粗利率</th>
                 <th className="p-2 text-right font-medium">営業利益</th>
                 <th className="p-2 text-right font-medium">営業利益率</th>
@@ -175,6 +185,9 @@ export function SimTab() {
                   <tr key={c.s.id} className="border-b border-border/60">
                     <td className="p-2 font-semibold text-fg">{c.s.label}</td>
                     <td className="p-2 text-right text-fg">{fmtMan(c.sellPrice)}</td>
+                    {showUnit && (
+                      <td className="p-2 text-right text-fg">{fmtMan(tsuboUnitPrice(c.sellPrice, tsuboForUnit))}<span className="text-[10px] text-muted">万/坪</span></td>
+                    )}
                     <td className="p-2 text-right text-fg">{fmtPct(c.result.grossMargin)}</td>
                     <td className={cn("p-2 text-right font-bold", pos ? "text-emerald-600 dark:text-emerald-400" : "text-red-600")}>
                       {fmtMan(c.result.operatingProfit)}

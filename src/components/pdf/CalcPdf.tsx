@@ -12,6 +12,7 @@ import {
   sumLotsPrice,
   sumLotsTsubo,
   avgLotUnitPrice,
+  itemVisibleInPdf,
 } from "@/lib/calc";
 import { ACQUISITION_ITEMS, EXPENSE_ITEMS, SELLING_ITEMS, ItemDef } from "@/lib/itemDefs";
 import { fmtMan, fmtPct } from "@/lib/format";
@@ -20,17 +21,20 @@ import { PROPERTY_TYPE_LABELS } from "@/lib/types";
 function Rows({
   items,
   values,
-  hideZero,
+  group,
+  pdfVisible,
+  showAll,
 }: {
   items: ItemDef[];
   values: Record<string, number>;
-  hideZero: boolean;
+  group: string;
+  pdfVisible?: Record<string, boolean>;
+  showAll: boolean;
 }) {
-  // hideZero のとき、金額0・未入力・費目名未入力の費目は出力しない（1ページに収めるため）
+  // 費目ごとの表示判定（金額0は既定で非表示。各費目のPDFチェックで個別に上書き可）
   const shown = items.filter((it) => {
-    if (!hideZero) return true;
-    const v = values[it.key];
-    return Number.isFinite(v) && v !== 0 && (it.label ?? "").trim() !== "";
+    if ((it.label ?? "").trim() === "") return false; // 費目名未入力は出さない
+    return itemVisibleInPdf(values[it.key], pdfVisible?.[`${group}:${it.key}`], showAll);
   });
   return (
     <>
@@ -58,8 +62,9 @@ function TotalRow({ label, value, accent }: { label: string; value: number; acce
 export function CalcPdf({ project, company }: { project: Project; company?: Company }) {
   const c = project.calc;
   const r = calculate(c);
-  // 既定では金額0・未入力の費目は出力しない（showZeroInPdf ですべて表示に切替可）
-  const hideZero = !(c.showZeroInPdf ?? false);
+  // 金額0・未入力の費目は既定で非表示（showZeroInPdf で一括表示。費目別は c.pdfVisible で上書き）
+  const showAll = c.showZeroInPdf ?? false;
+  const pdfVisible = c.pdfVisible;
   // 既定の費目 ＋ 追加費目（手動で足した費目）を結合して出力する
   const acqItems: ItemDef[] = [...ACQUISITION_ITEMS[c.propertyType], ...(c.acquisitionExtra ?? [])];
   const expItems: ItemDef[] = [...EXPENSE_ITEMS[c.propertyType], ...(c.expensesExtra ?? [])];
@@ -123,11 +128,11 @@ export function CalcPdf({ project, company }: { project: Project; company?: Comp
         )}
 
         <Text style={styles.sectionTitle}>取得原価</Text>
-        <Rows items={acqItems} values={c.acquisition} hideZero={hideZero} />
+        <Rows items={acqItems} values={c.acquisition} group="acquisition" pdfVisible={pdfVisible} showAll={showAll} />
         <TotalRow label="取得原価 合計" value={r.acquisitionCost} />
 
         <Text style={styles.sectionTitle}>経費</Text>
-        <Rows items={expItems} values={c.expenses} hideZero={hideZero} />
+        <Rows items={expItems} values={c.expenses} group="expenses" pdfVisible={pdfVisible} showAll={showAll} />
         <TotalRow label="経費 合計" value={r.expensesTotal} />
 
         <TotalRow label="売上原価（取得原価＋経費）" value={r.costOfSales} />
@@ -140,7 +145,7 @@ export function CalcPdf({ project, company }: { project: Project; company?: Comp
         </View>
 
         <Text style={styles.sectionTitle}>販売経費</Text>
-        <Rows items={sellItems} values={c.selling} hideZero={hideZero} />
+        <Rows items={sellItems} values={c.selling} group="selling" pdfVisible={pdfVisible} showAll={showAll} />
         <TotalRow label="販売経費 合計" value={r.sellingExpenses} />
 
         <TotalRow label="営業利益（粗利益−販売経費）" value={r.operatingProfit} accent />

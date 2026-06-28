@@ -12,15 +12,39 @@ import * as db from "./db";
  *  ・チェックリストを物件種別に合わせて再構成（旧データの移行を含む）
  *  ・追加費目の配列が無い場合は空配列で補う
  */
+/**
+ * 旧データ移行：取得原価にあった「境界確定/上下水道/外構」費用を経費へ移す。
+ * （費目を取得原価→経費へ統一したため。合計額は変わらないが、表示場所を正す）
+ */
+function migrateSiteworkToExpenses(calc: Project["calc"]): Project["calc"] {
+  const moves: [string, string][] = [
+    ["boundary", "expBoundary"],
+    ["waterSupply", "expWaterSupply"],
+    ["exterior", "expExterior"],
+  ];
+  const acquisition = { ...calc.acquisition };
+  const expenses = { ...calc.expenses };
+  let changed = false;
+  for (const [from, to] of moves) {
+    if (acquisition[from] != null) {
+      expenses[to] = (expenses[to] ?? 0) + acquisition[from];
+      delete acquisition[from];
+      changed = true;
+    }
+  }
+  return changed ? { ...calc, acquisition, expenses } : calc;
+}
+
 function normalizeProject(p: Project): Project {
+  const migratedCalc = migrateSiteworkToExpenses(p.calc);
   return {
     ...p,
     calc: {
-      ...p.calc,
-      acquisitionExtra: p.calc.acquisitionExtra ?? [],
-      expensesExtra: p.calc.expensesExtra ?? [],
-      sellingExtra: p.calc.sellingExtra ?? [],
-      lots: p.calc.lots ?? [],
+      ...migratedCalc,
+      acquisitionExtra: migratedCalc.acquisitionExtra ?? [],
+      expensesExtra: migratedCalc.expensesExtra ?? [],
+      sellingExtra: migratedCalc.sellingExtra ?? [],
+      lots: migratedCalc.lots ?? [],
     },
     ringi: {
       ...p.ringi,

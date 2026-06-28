@@ -76,6 +76,11 @@ export interface CalcInput {
   tsubo?: number; // 坪数。面積㎡から自動換算（㎡×0.3025）するが手入力でも上書き可
   // PDF出力オプション
   showZeroInPdf?: boolean; // true で金額0・未入力の費目もPDFに表示（既定: 非表示で1ページに収める）
+  /**
+   * 費目ごとのPDF表示の上書き。キーは `${group}:${key}`（group=acquisition|expenses|selling）。
+   * true=必ず表示 / false=必ず非表示 / 未設定=既定（金額0は非表示・0以外は表示）。
+   */
+  pdfVisible?: Record<string, boolean>;
   // 連結利益用
   groupBrokerage?: boolean; // true: 自社グループが販売仲介し、受取仲介手数料を連結利益に加算する
   // 分譲地（subdivision）用：区画一覧。総販売価格は各区画の合計（sellPrice に反映）

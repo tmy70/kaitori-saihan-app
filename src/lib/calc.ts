@@ -96,6 +96,24 @@ export function usesTsuboPrice(type: string): boolean {
   return type === "land" || type === "mansion";
 }
 
+// ---------------- PDFの費目表示判定 ----------------
+
+/**
+ * 費目をPDFに表示するか判定する。
+ *  - override が指定されていればそれに従う（true=表示 / false=非表示）
+ *  - showAll が true なら金額0でも表示
+ *  - それ以外は金額が0・未入力なら非表示
+ */
+export function itemVisibleInPdf(
+  value: number | undefined,
+  override: boolean | undefined,
+  showAll: boolean
+): boolean {
+  if (override !== undefined) return override;
+  if (showAll) return true;
+  return Number.isFinite(value as number) && value !== 0;
+}
+
 // ---------------- 分譲地（区画分譲） ----------------
 
 /** 1区画の販売価格（万円）＝ 坪数 × 坪単価 */

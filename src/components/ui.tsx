@@ -123,6 +123,36 @@ export function NumberInput({
   /** true のとき、万円入力の下に円換算（取り違え防止）を薄く表示 */
   hintYen?: boolean;
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
+  // 入力途中の文字列（"176." や "0." など小数点入力）を保持するためのローカル状態。
+  // 数値だけを親へ通知しつつ、表示は手入力の文字列を優先する。
+  const [text, setText] = React.useState<string>(
+    value === undefined || Number.isNaN(value) ? "" : String(value)
+  );
+
+  // 外部から value が変わったとき（自動計算・タイプ変更・坪換算など）だけ表示を同期する。
+  // 自分のキー入力で生じた変更は「文字列を数値化した値」と一致するので同期しない（途中入力を壊さない）。
+  React.useEffect(() => {
+    const cur = text.replace(/,/g, "").trim();
+    const curNum = cur === "" ? NaN : Number(cur);
+    const v = value === undefined || Number.isNaN(value) ? NaN : value;
+    const sameNumber = curNum === v || (Number.isNaN(curNum) && Number.isNaN(v));
+    const emptyMeansZero = cur === "" && v === 0; // 空欄=0 のときは "0" に戻さない
+    if (!sameNumber && !emptyMeansZero) {
+      setText(value === undefined || Number.isNaN(value) ? "" : String(value));
+    }
+    // text は意図的に依存に含めない（value 変更時のみ同期）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const t = e.target.value;
+    setText(t);
+    const raw = t.replace(/,/g, "").trim();
+    if (raw === "") return onChangeNumber(0);
+    const n = Number(raw);
+    if (!Number.isNaN(n)) onChangeNumber(n); // "176." など末尾ドットは Number で 176 になり通知、表示は t を維持
+  }
+
   const showHint = hintYen && Number.isFinite(value) && (value ?? 0) !== 0;
   return (
     <div>
@@ -131,14 +161,9 @@ export function NumberInput({
           {...rest}
           type="text"
           inputMode="decimal"
-          value={value === undefined || Number.isNaN(value) ? "" : String(value)}
+          value={text}
           placeholder={placeholder ?? "0"}
-          onChange={(e) => {
-            const raw = e.target.value.replace(/,/g, "").trim();
-            if (raw === "") return onChangeNumber(0);
-            const n = Number(raw);
-            if (!Number.isNaN(n)) onChangeNumber(n);
-          }}
+          onChange={handleChange}
           className="w-full rounded-xl border border-border bg-surface-2 py-2.5 pl-3 pr-12 text-right text-sm font-medium text-fg outline-none transition-base focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
         />
         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">

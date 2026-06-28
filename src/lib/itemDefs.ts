@@ -28,7 +28,6 @@ export const ACQUISITION_ITEMS: Record<PropertyType, ItemDef[]> = {
     { key: "reform", label: "リフォーム費用" },
     { key: "fixedTaxProration", label: "固都税精算金", auto: "taxProration" },
     { key: "acquisitionTax", label: "不動産取得税", auto: "acquisitionTax", note: "評価額×土地1.5%・建物3%" },
-    { key: "boundary", label: "境界確定費用" },
     { key: "keyChange", label: "鍵交換代" },
     { key: "design", label: "設計料" },
     { key: "bankCost", label: "銀行諸費用" },
@@ -40,9 +39,6 @@ export const ACQUISITION_ITEMS: Record<PropertyType, ItemDef[]> = {
     { key: "demolition", label: "建物解体費用" },
     { key: "fixedTaxProration", label: "固都税精算金", auto: "taxProration" },
     { key: "acquisitionTax", label: "不動産取得税", auto: "acquisitionTax" },
-    { key: "boundary", label: "境界確定費用・分筆登記費用" },
-    { key: "waterSupply", label: "上下水道等引き込み費用" },
-    { key: "exterior", label: "外構工事費用" },
     { key: "bankCost", label: "銀行諸費用" },
   ],
   kenuri: [
@@ -52,7 +48,6 @@ export const ACQUISITION_ITEMS: Record<PropertyType, ItemDef[]> = {
     { key: "demolition", label: "建物解体費用" },
     { key: "fixedTaxProration", label: "固都税精算金", auto: "taxProration" },
     { key: "acquisitionTax", label: "不動産取得税", auto: "acquisitionTax" },
-    { key: "boundary", label: "境界確定費用・分筆登記費用" },
     { key: "construction", label: "建物建築費用" },
     { key: "groundImprovement", label: "地盤改良工事費用" },
     { key: "bankCost", label: "銀行諸費用" },
@@ -91,9 +86,8 @@ const EXPENSE_COMMON: ItemDef[] = [
 ];
 
 /**
- * 経費に追加する造成・整備系の費目。
- * 土地・建売では同等の項目を「取得原価」側に持つため、ここでは重複を避け
- * 戸建リフォーム・マンションの経費にのみ加える。
+ * 経費に含める造成・整備系の費目（全タイプ共通）。
+ * 以前は土地・建売で取得原価側にも同等項目があり重複していたため、経費側に統一した。
  */
 const EXPENSE_SITEWORK: ItemDef[] = [
   { key: "expBoundary", label: "境界確定費用（分筆登記費用）" },
@@ -124,8 +118,8 @@ const EXPENSE_DEVELOPMENT: ItemDef[] = [
 
 export const EXPENSE_ITEMS: Record<PropertyType, ItemDef[]> = {
   building: [...EXPENSE_COMMON, ...EXPENSE_SITEWORK],
-  land: [...EXPENSE_COMMON],
-  kenuri: [...EXPENSE_COMMON],
+  land: [...EXPENSE_COMMON, ...EXPENSE_SITEWORK],
+  kenuri: [...EXPENSE_COMMON, ...EXPENSE_SITEWORK],
   mansion: [...EXPENSE_COMMON, ...EXPENSE_SITEWORK],
   // 分譲地は造成費が主役。共通費（火災保険等）も使えるよう末尾に付ける。
   subdivision: [...EXPENSE_DEVELOPMENT, { key: "fireInsurance", label: "火災保険" }, { key: "removal", label: "家財撤去・庭木伐採" }],

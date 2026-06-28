@@ -28,6 +28,7 @@ import {
   sumLotsTsubo,
   avgLotUnitPrice,
   lotPrice,
+  itemVisibleInPdf,
 } from "@/lib/calc";
 import { reconcileChecklist, reconcileSchedule, defaultPassLine } from "@/lib/checklist";
 import { fmtMan, fmtPct, genId } from "@/lib/format";
@@ -80,6 +81,16 @@ export function CalcTab() {
   }
   function removeLot(id: string) {
     setLots(lots.filter((l) => l.id !== id));
+  }
+
+  // ---------------- PDFの費目別表示切替 ----------------
+  const showAllPdf = calc.showZeroInPdf ?? false;
+  function isPdfVisible(group: CalcGroup, key: string, value: number) {
+    return itemVisibleInPdf(value, calc.pdfVisible?.[`${group}:${key}`], showAllPdf);
+  }
+  function togglePdfVisible(group: CalcGroup, key: string, value: number) {
+    const cur = isPdfVisible(group, key, value);
+    setCalc({ pdfVisible: { ...(calc.pdfVisible ?? {}), [`${group}:${key}`]: !cur } });
   }
 
   // ---------------- 追加費目（手動で足す費目）の操作 ----------------
@@ -285,6 +296,8 @@ export function CalcTab() {
         onAddCustom={() => addCustom("acquisition")}
         onCustomLabel={(k, label) => setCustomLabel("acquisition", k, label)}
         onRemoveCustom={(k) => removeCustom("acquisition", k)}
+        isVisible={(k, v) => isPdfVisible("acquisition", k, v)}
+        onToggleVisible={(k, v) => togglePdfVisible("acquisition", k, v)}
       />
 
       {/* 経費 */}
@@ -299,6 +312,8 @@ export function CalcTab() {
         onAddCustom={() => addCustom("expenses")}
         onCustomLabel={(k, label) => setCustomLabel("expenses", k, label)}
         onRemoveCustom={(k) => removeCustom("expenses", k)}
+        isVisible={(k, v) => isPdfVisible("expenses", k, v)}
+        onToggleVisible={(k, v) => togglePdfVisible("expenses", k, v)}
       />
 
       {/* 売上原価・粗利の中間サマリー */}
@@ -319,6 +334,8 @@ export function CalcTab() {
         onAddCustom={() => addCustom("selling")}
         onCustomLabel={(k, label) => setCustomLabel("selling", k, label)}
         onRemoveCustom={(k) => removeCustom("selling", k)}
+        isVisible={(k, v) => isPdfVisible("selling", k, v)}
+        onToggleVisible={(k, v) => togglePdfVisible("selling", k, v)}
       />
 
       {/* 営業利益サマリー */}
@@ -369,7 +386,8 @@ export function CalcTab() {
           label="0円・未入力の費目もPDFに表示する"
         />
         <p className="mt-2 text-[11px] leading-relaxed text-muted">
-          既定では金額の入っていない費目はPDFに印刷されません（1ページに収めるため）。すべての費目を載せたい場合はオンにしてください。
+          既定では金額の入っていない費目はPDFに印刷されません（1ページに収めるため）。すべての費目を一括で載せたい場合はオンに。
+          個別に印刷可否を変えたいときは、各費目右側の「PDF」チェックで1つずつ切り替えられます（チェック＝印刷する）。
         </p>
       </Card>
     </div>
@@ -387,6 +405,8 @@ function ItemGroup({
   onAddCustom,
   onCustomLabel,
   onRemoveCustom,
+  isVisible,
+  onToggleVisible,
 }: {
   title: string;
   total: number;
@@ -398,6 +418,8 @@ function ItemGroup({
   onAddCustom: () => void;
   onCustomLabel: (key: string, label: string) => void;
   onRemoveCustom: (key: string) => void;
+  isVisible: (key: string, value: number) => boolean;
+  onToggleVisible: (key: string, value: number) => void;
 }) {
   return (
     <Card>
@@ -411,6 +433,7 @@ function ItemGroup({
                 {it.label}
                 {it.note && <span className="ml-1 text-[10px] text-muted">（{it.note}）</span>}
               </span>
+              <PdfCheck visible={isVisible(it.key, values[it.key] ?? 0)} onToggle={() => onToggleVisible(it.key, values[it.key] ?? 0)} />
             </div>
             <div className="mt-1.5 flex items-center gap-2">
               <div className="flex-1">
@@ -435,6 +458,7 @@ function ItemGroup({
                 onChange={(e) => onCustomLabel(c.key, e.target.value)}
                 className="flex-1 text-sm"
               />
+              <PdfCheck visible={isVisible(c.key, values[c.key] ?? 0)} onToggle={() => onToggleVisible(c.key, values[c.key] ?? 0)} />
               <button
                 type="button"
                 onClick={() => onRemoveCustom(c.key)}
@@ -458,6 +482,16 @@ function ItemGroup({
         </Button>
       </div>
     </Card>
+  );
+}
+
+/** 費目ごとのPDF表示チェック（チェック=印刷する／外す=印刷しない） */
+function PdfCheck({ visible, onToggle }: { visible: boolean; onToggle: () => void }) {
+  return (
+    <label className="flex shrink-0 cursor-pointer items-center gap-1 text-[10px] text-muted" title="PDFに印刷するかどうか">
+      <input type="checkbox" checked={visible} onChange={onToggle} className="h-3.5 w-3.5 accent-brand-500" />
+      PDF
+    </label>
   );
 }
 
