@@ -174,14 +174,14 @@ export function CalcTab() {
           )}
         </div>
 
-        {/* 面積（分譲地以外）。面積㎡を入れると坪数を自動換算。土地・マンションは坪単価も自動計算。稟議書へ自動転記される */}
+        {/* 面積（分譲地以外）。面積m²を入れると坪数を自動換算。土地・マンションは坪単価も自動計算。稟議書へ自動転記される */}
         {!isSubdivision && (
           <div className="mt-3 border-t border-border pt-3">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <Field label={`${tsuboLabel}（㎡）`} hint="坪数を自動換算">
+              <Field label={`${tsuboLabel}（m²）`} hint="坪数を自動換算">
                 <NumberInput
                   value={calc.areaSqm}
-                  suffix="㎡"
+                  suffix="m²"
                   onChangeNumber={(n) => setCalc({ areaSqm: n, tsubo: sqmToTsubo(n) })}
                 />
               </Field>
@@ -189,10 +189,10 @@ export function CalcTab() {
                 <NumberInput value={calc.tsubo} suffix="坪" onChangeNumber={(n) => setCalc({ tsubo: n })} />
               </Field>
               {hasBuilding && (
-                <Field label="建物面積（㎡）" hint="戸建の延床面積">
+                <Field label="建物面積（m²）" hint="戸建の延床面積">
                   <NumberInput
                     value={calc.buildingAreaSqm}
-                    suffix="㎡"
+                    suffix="m²"
                     onChangeNumber={(n) => setCalc({ buildingAreaSqm: n })}
                   />
                 </Field>
@@ -244,10 +244,10 @@ export function CalcTab() {
                   </button>
                 </div>
                 <div className="mt-2 grid grid-cols-3 gap-2">
-                  <Field label="面積（㎡）">
+                  <Field label="面積（m²）">
                     <NumberInput
                       value={l.areaSqm}
-                      suffix="㎡"
+                      suffix="m²"
                       onChangeNumber={(n) => patchLot(l.id, { areaSqm: n, tsubo: sqmToTsubo(n) })}
                     />
                   </Field>

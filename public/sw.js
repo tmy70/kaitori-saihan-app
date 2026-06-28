@@ -1,7 +1,7 @@
 // シンプルな Service Worker（オフライン利用のためのランタイムキャッシュ）
 // basePath（サブパス配信）に依存しないよう、固定パスのプリキャッシュは行わず
 // 訪れたGETレスポンスを都度キャッシュする network-first 方式にしている。
-const CACHE = "kaitori-saihan-v2";
+const CACHE = "kaitori-saihan-v3";
 
 self.addEventListener("install", () => {
   self.skipWaiting();

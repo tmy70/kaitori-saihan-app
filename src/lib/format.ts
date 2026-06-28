@@ -28,14 +28,32 @@ export function fmtArea(n: number | undefined | null): string {
   return n.toLocaleString("ja-JP", { maximumFractionDigits: 2 });
 }
 
-/** 面積の表示文字列（例: 176.87㎡（53.5坪））。両方無ければ空文字 */
+/**
+ * 面積の表示文字列（例: 176.87m²（53.5坪））。両方無ければ空文字。
+ * 単位は「m²」で統一（PDF埋め込みフォントが「㎡」(U+33A1)を持たず化けるため）。
+ */
 export function areaLabel(sqm?: number, tsubo?: number): string {
   const s = fmtArea(sqm);
   const t = fmtArea(tsubo);
-  if (s && t) return `${s}㎡（${t}坪）`;
-  if (s) return `${s}㎡`;
+  if (s && t) return `${s}m²（${t}坪）`;
+  if (s) return `${s}m²`;
   if (t) return `${t}坪`;
   return "";
+}
+
+/**
+ * PDF埋め込みフォント（Noto Sans JP サブセット）が表示できない単位記号を安全な表記へ変換する。
+ * ㎡→m² / ㎥→m³ / ㎝→cm / ㎜→mm / ㎞→km / ㎏→kg（画面では問題ないがPDF用に正規化）
+ */
+export function sanitizePdfText(s: string | number | undefined | null): string {
+  if (s == null) return "";
+  return String(s)
+    .replace(/㎡/g, "m²")
+    .replace(/㎥/g, "m³")
+    .replace(/㎝/g, "cm")
+    .replace(/㎜/g, "mm")
+    .replace(/㎞/g, "km")
+    .replace(/㎏/g, "kg");
 }
 
 /** 比率(0〜1) → ％文字列 */

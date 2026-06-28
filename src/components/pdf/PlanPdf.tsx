@@ -17,7 +17,7 @@ import {
   avgLotUnitPrice,
   itemVisibleInPdf,
 } from "@/lib/calc";
-import { fmtMan, fmtPct, fmtYen, manToYen } from "@/lib/format";
+import { fmtMan, fmtPct, fmtYen, manToYen, sanitizePdfText } from "@/lib/format";
 import { ACQUISITION_ITEMS, EXPENSE_ITEMS, SELLING_ITEMS, ItemDef } from "@/lib/itemDefs";
 import { PROPERTY_TYPE_LABELS } from "@/lib/types";
 
@@ -34,7 +34,7 @@ function Body({ text }: { text: string }) {
           const label = t.replace(/^#{1,3}\s/, "");
           return (
             <Text key={i} style={styles.sectionTitle}>
-              {label}
+              {sanitizePdfText(label)}
             </Text>
           );
         }
@@ -42,13 +42,13 @@ function Body({ text }: { text: string }) {
         if (/^[-・*]\s/.test(t)) {
           return (
             <Text key={i} style={{ marginBottom: 2, marginLeft: 8 }}>
-              ・{t.replace(/^[-・*]\s/, "")}
+              ・{sanitizePdfText(t.replace(/^[-・*]\s/, ""))}
             </Text>
           );
         }
         return (
           <Text key={i} style={styles.paragraph}>
-            {t.replace(/\*\*/g, "")}
+            {sanitizePdfText(t.replace(/\*\*/g, ""))}
           </Text>
         );
       })}
@@ -208,7 +208,7 @@ function PropertyOverview({ project }: { project: Project }) {
   const areaSqm = isSubdivision ? sumLotsArea(lots) : c.areaSqm;
   const tsubo = isSubdivision ? sumLotsTsubo(lots) : c.tsubo;
   const tsuboText = tsubo ? `${fmtMan(tsubo)} 坪` : "";
-  const areaText = areaSqm ? `${fmtMan(areaSqm)} ㎡${tsuboText ? `（${tsuboText}）` : ""}` : "";
+  const areaText = areaSqm ? `${fmtMan(areaSqm)} m²${tsuboText ? `（${tsuboText}）` : ""}` : "";
   const pairs: [string, string][] = [
     ["物件所在地", ri.address],
     ["物件種別", ri.propertyKind || PROPERTY_TYPE_LABELS[project.propertyType]],
@@ -228,7 +228,7 @@ function PropertyOverview({ project }: { project: Project }) {
       {rows.map(([k, v], i) => (
         <View key={i} style={styles.row}>
           <Text style={styles.cellLabel}>{k}</Text>
-          <Text style={[styles.cellValue, { textAlign: "left", fontWeight: "normal" }]}>{v}</Text>
+          <Text style={[styles.cellValue, { textAlign: "left", fontWeight: "normal" }]}>{sanitizePdfText(v)}</Text>
         </View>
       ))}
     </>
@@ -354,7 +354,7 @@ function FundingPlan({ project }: { project: Project }) {
       {rows.map(([k, v], i) => (
         <View key={i} style={styles.row}>
           <Text style={styles.cellLabel}>{k}</Text>
-          <Text style={[styles.cellValue, { textAlign: "left", fontWeight: "normal" }]}>{v}</Text>
+          <Text style={[styles.cellValue, { textAlign: "left", fontWeight: "normal" }]}>{sanitizePdfText(v)}</Text>
         </View>
       ))}
       <Text style={{ fontSize: 7.5, color: COLORS.muted, marginTop: 3 }}>
