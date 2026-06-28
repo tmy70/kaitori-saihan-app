@@ -7,7 +7,7 @@ import { useMemo } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardHeader, Field, TextInput, TextArea, Toggle, Badge, Button, NumberInput, Select, cn } from "@/components/ui";
 import { ChecklistItem, ChecklistStatus, RingiData } from "@/lib/types";
-import { calculate, tsuboUnitPrice, usesTsuboPrice, consolidatedProfit, receivedBrokerage } from "@/lib/calc";
+import { calculate, tsuboUnitPrice, usesTsuboPrice, consolidatedProfit, receivedBrokerage, sumLotsArea, sumLotsTsubo } from "@/lib/calc";
 import { countCleared, countStatus, addSpareItem, coreItemCount, defaultPassLine, autoFillSchedule } from "@/lib/checklist";
 import { fmtMan, fmtPct, areaLabel } from "@/lib/format";
 
@@ -31,8 +31,12 @@ export function RingiTab() {
   const result = useMemo(() => calculate(current.calc), [current.calc]);
   const isMansion = current.propertyType === "mansion";
   const hasBuilding = current.propertyType === "building" || current.propertyType === "kenuri";
-  // 計算書から自動転記する面積表示
-  const landAreaDisplay = areaLabel(current.calc.areaSqm, current.calc.tsubo) || r.landArea;
+  const isSubdivision = current.propertyType === "subdivision";
+  // 計算書から自動転記する面積表示（分譲地は区画の合計から算出）
+  const landAreaDisplay = isSubdivision
+    ? areaLabel(sumLotsArea(current.calc.lots), sumLotsTsubo(current.calc.lots)) || r.landArea
+    : areaLabel(current.calc.areaSqm, current.calc.tsubo) || r.landArea;
+  const landAreaLabel = isSubdivision ? "土地面積（区画合計）" : "土地面積";
   const buildingAreaDisplay = areaLabel(current.calc.buildingAreaSqm) || r.buildingArea;
   const exclusiveAreaDisplay = areaLabel(current.calc.areaSqm, current.calc.tsubo) || r.exclusiveArea;
   // 物件種別プルダウン（旧データの自由記述値も選択肢に含める）
@@ -119,7 +123,10 @@ export function RingiTab() {
       <Card>
         <CardHeader title="物件スペック" desc="面積は計算書の入力から自動転記されます" />
         <div className="grid grid-cols-2 gap-3 p-4">
-          {!isMansion && <ReadonlyField label="土地面積" value={landAreaDisplay} from="計算書" />}
+          {!isMansion && <ReadonlyField label={landAreaLabel} value={landAreaDisplay} from="計算書" />}
+          {isSubdivision && (
+            <ReadonlyField label="区画数" value={current.calc.lots?.length ? `${current.calc.lots.length} 区画` : ""} from="計算書" />
+          )}
           {hasBuilding && <ReadonlyField label="建物面積" value={buildingAreaDisplay} from="計算書" />}
           <Field label="建物築年数">
             <TextInput value={r.buildingAge} onChange={(e) => setRingi({ buildingAge: e.target.value })} />

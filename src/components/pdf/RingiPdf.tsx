@@ -2,7 +2,7 @@
 import React from "react";
 import { Document, View, Text, BasePage, styles, COLORS, ApprovalRow } from "./common";
 import { Company, Project, PROPERTY_TYPE_LABELS } from "@/lib/types";
-import { calculate, tsuboUnitPrice, usesTsuboPrice, consolidatedProfit, receivedBrokerage } from "@/lib/calc";
+import { calculate, tsuboUnitPrice, usesTsuboPrice, consolidatedProfit, receivedBrokerage, sumLotsArea, sumLotsTsubo } from "@/lib/calc";
 import { countCleared, countStatus, defaultPassLine, ngLabels, fixableLabels } from "@/lib/checklist";
 import { fmtMan, fmtPct, areaLabel, sanitizePdfText } from "@/lib/format";
 
@@ -39,10 +39,14 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
   // 要確認事項（不適合・是正可能）
   const ngs = ngLabels(r.checklist);
   const fixables = fixableLabels(r.checklist);
-  // 面積は計算書から自動転記（無ければ稟議書の旧テキストを使用）
+  // 面積は計算書から自動転記（無ければ稟議書の旧テキストを使用。分譲地は区画合計から算出）
   const c = project.calc;
   const hasBuilding = project.propertyType === "building" || project.propertyType === "kenuri";
-  const landAreaDisplay = areaLabel(c.areaSqm, c.tsubo) || r.landArea;
+  const isSubdivision = project.propertyType === "subdivision";
+  const landAreaDisplay = isSubdivision
+    ? areaLabel(sumLotsArea(c.lots), sumLotsTsubo(c.lots)) || r.landArea
+    : areaLabel(c.areaSqm, c.tsubo) || r.landArea;
+  const landAreaLabel = isSubdivision ? "土地面積（区画合計）" : "土地面積";
   const buildingAreaDisplay = areaLabel(c.buildingAreaSqm) || r.buildingArea;
   const exclusiveAreaDisplay = areaLabel(c.areaSqm, c.tsubo) || r.exclusiveArea;
 
@@ -64,7 +68,8 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
         <KV label="売却希望理由・注意点" value={r.sellReason} />
 
         <Text style={styles.sectionTitle}>物件スペック</Text>
-        {!isMansion && <KV label="土地面積" value={landAreaDisplay} />}
+        {!isMansion && <KV label={landAreaLabel} value={landAreaDisplay} />}
+        {isSubdivision && c.lots && c.lots.length > 0 && <KV label="区画数" value={`${c.lots.length} 区画`} />}
         {hasBuilding && <KV label="建物面積" value={buildingAreaDisplay} />}
         <KV label="築年数" value={r.buildingAge} />
         <KV label="構造" value={r.structure} />
