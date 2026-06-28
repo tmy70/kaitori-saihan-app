@@ -2,7 +2,20 @@
 import React from "react";
 import { Document, View, Text, BasePage, styles, COLORS } from "./common";
 import { Company, Project } from "@/lib/types";
-import { calculate, calcBrokerage, breakEvenPrice, tsuboUnitPrice, usesTsuboPrice, consolidatedProfit, receivedBrokerage } from "@/lib/calc";
+import {
+  calculate,
+  calcBrokerage,
+  breakEvenPrice,
+  tsuboUnitPrice,
+  usesTsuboPrice,
+  consolidatedProfit,
+  receivedBrokerage,
+  lotPrice,
+  sumLotsPrice,
+  sumLotsTsubo,
+  sumLotsArea,
+  avgLotUnitPrice,
+} from "@/lib/calc";
 import { fmtMan, fmtPct, fmtYen, manToYen } from "@/lib/format";
 import { ACQUISITION_ITEMS, EXPENSE_ITEMS, SELLING_ITEMS, ItemDef } from "@/lib/itemDefs";
 import { PROPERTY_TYPE_LABELS } from "@/lib/types";
@@ -185,16 +198,22 @@ function PropertyOverview({ project }: { project: Project }) {
   const ri = project.ringi;
   const c = project.calc;
   const isMansion = project.propertyType === "mansion";
-  const tsuboText = c.tsubo ? `${fmtMan(c.tsubo)} 坪` : "";
-  const areaText = c.areaSqm ? `${fmtMan(c.areaSqm)} ㎡${tsuboText ? `（${tsuboText}）` : ""}` : "";
+  const isSubdivision = project.propertyType === "subdivision";
+  const lots = c.lots ?? [];
+  // 面積（分譲地は区画合計、その他は計算書の坪数欄 or 稟議書の面積テキスト）
+  const areaSqm = isSubdivision ? sumLotsArea(lots) : c.areaSqm;
+  const tsubo = isSubdivision ? sumLotsTsubo(lots) : c.tsubo;
+  const tsuboText = tsubo ? `${fmtMan(tsubo)} 坪` : "";
+  const areaText = areaSqm ? `${fmtMan(areaSqm)} ㎡${tsuboText ? `（${tsuboText}）` : ""}` : "";
   const pairs: [string, string][] = [
     ["物件所在地", ri.address],
     ["物件種別", ri.propertyKind || PROPERTY_TYPE_LABELS[project.propertyType]],
     [isMansion ? "専有面積" : "土地面積", areaText || (isMansion ? ri.exclusiveArea : ri.landArea)],
-    ["建物面積", isMansion ? "" : ri.buildingArea],
-    ["築年数", ri.buildingAge],
-    ["構造", ri.structure],
-    ["駐車場", isMansion ? ri.mansionParking : ri.parking],
+    ...(isSubdivision ? ([["区画数", lots.length ? `${lots.length} 区画` : ""]] as [string, string][]) : []),
+    ["建物面積", isMansion || isSubdivision ? "" : ri.buildingArea],
+    ["築年数", isSubdivision ? "" : ri.buildingAge],
+    ["構造", isSubdivision ? "" : ri.structure],
+    ["駐車場", isMansion ? ri.mansionParking : isSubdivision ? "" : ri.parking],
     ["路線価", ri.rosenka],
   ];
   const rows = pairs.filter(([, v]) => v && String(v).trim() !== "");
@@ -222,11 +241,14 @@ function BankFinanceTables({ project }: { project: Project }) {
   const sellItems: ItemDef[] = [...SELLING_ITEMS, ...(c.sellingExtra ?? [])];
   const showTsubo = usesTsuboPrice(c.propertyType);
   const unitPrice = tsuboUnitPrice(c.sellPrice, c.tsubo);
+  const isSubdivision = c.propertyType === "subdivision";
+  const lots = c.lots ?? [];
   // 想定販売価格の算定根拠（坪単価）
-  const priceBasis =
-    showTsubo && unitPrice > 0 && c.tsubo
-      ? `${fmtMan(c.tsubo)}坪 × ${fmtMan(unitPrice)}万円/坪`
-      : "";
+  const priceBasis = isSubdivision
+    ? `全${lots.length}区画 合計（合計${fmtMan(sumLotsTsubo(lots))}坪・平均坪単価${fmtMan(avgLotUnitPrice(lots))}万円）`
+    : showTsubo && unitPrice > 0 && c.tsubo
+    ? `${fmtMan(c.tsubo)}坪 × ${fmtMan(unitPrice)}万円/坪`
+    : "";
 
   // 収益見込み（区分・金額(円)・算定根拠）
   const profitRows: { k: string; v: number; basis: string; accent?: boolean }[] = [
@@ -250,6 +272,32 @@ function BankFinanceTables({ project }: { project: Project }) {
       <Text style={styles.sectionTitle} break>
         収支計画（単位：円）
       </Text>
+      {/* 分譲地：区画別の販売明細（円） */}
+      {isSubdivision && lots.length > 0 && (
+        <>
+          <Text style={{ fontSize: 9, fontWeight: "bold", marginTop: 8, marginBottom: 3 }}>区画別 販売明細</Text>
+          <View style={{ flexDirection: "row", backgroundColor: COLORS.light }}>
+            <Text style={[styles.td, { width: "28%", fontWeight: "bold" }]}>区画</Text>
+            <Text style={[styles.td, { width: "18%", textAlign: "right", fontWeight: "bold" }]}>面積(坪)</Text>
+            <Text style={[styles.td, { width: "24%", textAlign: "right", fontWeight: "bold" }]}>坪単価(万)</Text>
+            <Text style={[styles.td, { width: "30%", textAlign: "right", fontWeight: "bold" }]}>販売価格(円)</Text>
+          </View>
+          {lots.map((l) => (
+            <View key={l.id} style={{ flexDirection: "row" }}>
+              <Text style={[styles.td, { width: "28%" }]}>{l.name || "（区画）"}</Text>
+              <Text style={[styles.td, { width: "18%", textAlign: "right" }]}>{fmtMan(l.tsubo ?? 0)}</Text>
+              <Text style={[styles.td, { width: "24%", textAlign: "right" }]}>{fmtMan(l.unitPrice ?? 0)}</Text>
+              <Text style={[styles.td, { width: "30%", textAlign: "right" }]}>{fmtYen(manToYen(lotPrice(l)))}</Text>
+            </View>
+          ))}
+          <View style={{ flexDirection: "row", backgroundColor: COLORS.light }}>
+            <Text style={[styles.td, { width: "28%", fontWeight: "bold" }]}>合計（{lots.length}区画）</Text>
+            <Text style={[styles.td, { width: "18%", textAlign: "right", fontWeight: "bold" }]}>{fmtMan(sumLotsTsubo(lots))}</Text>
+            <Text style={[styles.td, { width: "24%", textAlign: "right" }]}>平均{fmtMan(avgLotUnitPrice(lots))}</Text>
+            <Text style={[styles.td, { width: "30%", textAlign: "right", fontWeight: "bold", color: COLORS.brand }]}>{fmtYen(manToYen(sumLotsPrice(lots)))}</Text>
+          </View>
+        </>
+      )}
       <YenItemTable heading="取得原価（売上原価の内訳）" items={acqItems} values={c.acquisition} totalLabel="取得原価 合計" hideZero={hideZero} />
       <YenItemTable heading="経費" items={expItems} values={c.expenses} totalLabel="経費 合計" hideZero={hideZero} />
       <YenItemTable heading="販売経費" items={sellItems} values={c.selling} totalLabel="販売経費 合計" hideZero={hideZero} />

@@ -270,7 +270,7 @@ export function RingiTab() {
             onClick={() => {
               const base = r.schedule.find((s) => s.key === "contract")?.date ?? "";
               if (!base) return;
-              setRingi({ schedule: autoFillSchedule(base) });
+              setRingi({ schedule: autoFillSchedule(base, current.propertyType) });
             }}
           >
             契約日から自動入力

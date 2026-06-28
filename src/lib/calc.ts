@@ -7,7 +7,7 @@
 //   営業利益 = 粗利益 - 販売経費
 //   営業利益率 = 営業利益 ÷ 販売価格
 // ============================================================
-import { CalcInput, CalcResult } from "./types";
+import { CalcInput, CalcResult, Lot } from "./types";
 
 /** ItemValues の合計（NaN/未入力は0扱い） */
 export function sumItems(values: Record<string, number> | undefined): number {
@@ -94,6 +94,40 @@ export function tsuboUnitPrice(sellPrice: number, tsubo: number | undefined): nu
 /** 物件タイプが坪単価表示の対象か（土地・マンション） */
 export function usesTsuboPrice(type: string): boolean {
   return type === "land" || type === "mansion";
+}
+
+// ---------------- 分譲地（区画分譲） ----------------
+
+/** 1区画の販売価格（万円）＝ 坪数 × 坪単価 */
+export function lotPrice(lot: Lot): number {
+  const t = Number.isFinite(lot.tsubo as number) ? (lot.tsubo as number) : 0;
+  const u = Number.isFinite(lot.unitPrice as number) ? (lot.unitPrice as number) : 0;
+  return round2(t * u);
+}
+
+/** 全区画の総販売価格（万円） */
+export function sumLotsPrice(lots: Lot[] | undefined): number {
+  if (!lots || lots.length === 0) return 0;
+  return round2(lots.reduce((a, l) => a + lotPrice(l), 0));
+}
+
+/** 全区画の合計坪数 */
+export function sumLotsTsubo(lots: Lot[] | undefined): number {
+  if (!lots || lots.length === 0) return 0;
+  return round2(lots.reduce((a, l) => a + (Number.isFinite(l.tsubo as number) ? (l.tsubo as number) : 0), 0));
+}
+
+/** 全区画の合計面積（㎡） */
+export function sumLotsArea(lots: Lot[] | undefined): number {
+  if (!lots || lots.length === 0) return 0;
+  return round2(lots.reduce((a, l) => a + (Number.isFinite(l.areaSqm as number) ? (l.areaSqm as number) : 0), 0));
+}
+
+/** 全区画の平均坪単価（万円/坪）＝ 総販売価格 ÷ 合計坪数 */
+export function avgLotUnitPrice(lots: Lot[] | undefined): number {
+  const t = sumLotsTsubo(lots);
+  if (t <= 0) return 0;
+  return round2(sumLotsPrice(lots) / t);
 }
 
 // ---------------- 連結利益（自社グループ仲介） ----------------

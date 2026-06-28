@@ -24,7 +24,7 @@ export interface ChecklistDef {
   criteriaAll?: string;
 }
 
-const ALL: PropertyType[] = ["building", "land", "kenuri", "mansion"];
+const ALL: PropertyType[] = ["building", "land", "kenuri", "mansion", "subdivision"];
 
 /** 購入チェックリストのマスタ定義（社内標準の既定値） */
 export const CHECKLIST_DEFS: ChecklistDef[] = [
@@ -43,6 +43,7 @@ export const CHECKLIST_DEFS: ChecklistDef[] = [
       land: "事業計画の利益基準を満たす仕入価格",
       kenuri: "事業計画の利益基準を満たす仕入価格",
       mansion: "事業計画の利益基準を満たす仕入価格",
+      subdivision: "造成後の総売上から逆算した利益基準を満たす用地仕入価格",
     },
   },
   {
@@ -64,6 +65,7 @@ export const CHECKLIST_DEFS: ChecklistDef[] = [
       land: "土地100㎡以上",
       kenuri: "土地100㎡以上（建物70㎡以上を確保）",
       mansion: "専有面積60㎡以上",
+      subdivision: "各区画100㎡以上を確保できる総面積・形状",
     },
   },
   {
@@ -75,6 +77,7 @@ export const CHECKLIST_DEFS: ChecklistDef[] = [
       land: "市内中心地1台以上／郊外2台以上",
       kenuri: "市内中心地1台以上／郊外2台以上",
       mansion: "1台以上確保（空き区画・機械式可）",
+      subdivision: "各区画に2台以上の駐車スペースを確保",
     },
   },
   {
@@ -86,6 +89,7 @@ export const CHECKLIST_DEFS: ChecklistDef[] = [
       land: "需要価格帯（事業計画の範囲内）",
       kenuri: "需要価格帯（事業計画の範囲内）",
       mansion: "管理費等込みで妥当な支払い価格帯",
+      subdivision: "各区画が地域の需要価格帯に収まる坪単価",
     },
   },
   {
@@ -163,13 +167,16 @@ export const CHECKLIST_DEFS: ChecklistDef[] = [
   {
     key: "boundary",
     label: "越境・境界問題がないか",
-    types: ["building", "land", "kenuri"], // マンションは非表示
+    types: ["building", "land", "kenuri", "subdivision"], // マンションは非表示
     criteriaAll: "越境なし・境界明示済",
   },
   {
     key: "water",
     label: "上下水道の引込状況",
-    types: ["building", "land", "kenuri"],
+    types: ["building", "land", "kenuri", "subdivision"],
+    criteria: {
+      subdivision: "本管の位置・口径を確認し、各区画への引込が可能（必要なら本管延伸を計画）",
+    },
     criteriaAll: "本管引込済（井戸・汲取り・浄化槽は要確認）",
   },
   {
@@ -181,7 +188,7 @@ export const CHECKLIST_DEFS: ChecklistDef[] = [
   {
     key: "wall",
     label: "擁壁に問題がないか",
-    types: ["building", "land", "kenuri"],
+    types: ["building", "land", "kenuri", "subdivision"],
     criteriaAll: "擁壁の不適格・劣化・要改修なし",
   },
   {
@@ -208,6 +215,43 @@ export const CHECKLIST_DEFS: ChecklistDef[] = [
     types: ["mansion"], // マンションのみ
     criteriaAll: "管理費・修繕費込みで月々6万円台",
   },
+  // ---- 分譲地（造成・区画分譲）固有の項目 ----
+  {
+    key: "devPermit",
+    label: "開発許可の要否・取得見込み",
+    types: ["subdivision"],
+    criteriaAll: "開発許可が不要、または取得見込みが明確（都市計画法29条等）",
+  },
+  {
+    key: "roadAccess",
+    label: "接道・前面道路の要件を満たすか",
+    types: ["subdivision"],
+    criteriaAll: "各区画が建築基準法の接道要件を満たす（道路後退・位置指定道路の要否を確認）",
+  },
+  {
+    key: "drainage",
+    label: "排水放流先が確保できるか",
+    types: ["subdivision"],
+    criteriaAll: "雨水・汚水の放流先と排水計画が確保できる（調整池の要否確認）",
+  },
+  {
+    key: "zoning",
+    label: "用途地域・地区計画・規制をクリアするか",
+    types: ["subdivision"],
+    criteriaAll: "用途地域・建ぺい/容積・地区計画・農地転用等の規制をクリア",
+  },
+  {
+    key: "lotPlan",
+    label: "区画割の妥当性・需要があるか",
+    types: ["subdivision"],
+    criteriaAll: "区画数・各区画面積が地域需要に合致し、売れ残りリスクが低い",
+  },
+  {
+    key: "infraCost",
+    label: "造成・インフラ費用が予算内か",
+    types: ["subdivision"],
+    criteriaAll: "造成・道路・上下水道等の総額が事業計画の範囲内",
+  },
 ];
 
 /** その種別での判定基準を引く */
@@ -225,6 +269,7 @@ export const DEFAULT_PASS_LINE: Record<PropertyType, number> = {
   land: 13,
   kenuri: 15,
   mansion: 14,
+  subdivision: 18, // 基本20項目に対する社内標準
 };
 
 /** 種別の合格ライン既定値 */
@@ -321,11 +366,14 @@ export function addSpareItem(items: ChecklistItem[]): ChecklistItem[] {
   ];
 }
 
-/**
- * 再販スケジュール 9ステップの定義。
- * offsetDays: 起点（①売買契約）からの標準的な経過日数。自動日付入力の既定値。
- */
-export const SCHEDULE_DEFS: { key: string; label: string; offsetDays: number }[] = [
+interface ScheduleDef {
+  key: string;
+  label: string;
+  offsetDays: number; // 起点（①）からの標準経過日数。自動日付入力の既定値。
+}
+
+/** 再販（リフォーム/土地/建売/マンション）の標準スケジュール */
+const SCHEDULE_REFORM: ScheduleDef[] = [
   { key: "contract", label: "①売買契約", offsetDays: 0 },
   { key: "settlement", label: "②売買決済", offsetDays: 30 },
   { key: "reformEstimate", label: "③リフォーム見積（相見積）", offsetDays: 32 },
@@ -336,6 +384,36 @@ export const SCHEDULE_DEFS: { key: string; label: string; offsetDays: number }[]
   { key: "saleContract", label: "⑧売却契約", offsetDays: 90 },
   { key: "saleSettlement", label: "⑨売却決済（入金）", offsetDays: 120 },
 ];
+
+/** 分譲地（造成・区画分譲）のスケジュール */
+const SCHEDULE_SUBDIVISION: ScheduleDef[] = [
+  { key: "contract", label: "①売買契約（用地仕入）", offsetDays: 0 },
+  { key: "settlement", label: "②用地決済（引渡し）", offsetDays: 30 },
+  { key: "devDesign", label: "③造成設計・区画割", offsetDays: 35 },
+  { key: "devPermit", label: "④開発許可申請・取得", offsetDays: 60 },
+  { key: "devStart", label: "⑤造成工事着工", offsetDays: 90 },
+  { key: "devDone", label: "⑥造成工事完工", offsetDays: 150 },
+  { key: "subdivisionReg", label: "⑦分筆・地目変更登記", offsetDays: 165 },
+  { key: "adStart", label: "⑧分譲販売開始", offsetDays: 170 },
+  { key: "saleSettlement", label: "⑨各区画売却・決済（入金）", offsetDays: 260 },
+];
+
+/** 物件タイプ別のスケジュール定義 */
+export const SCHEDULE_DEFS_BY_TYPE: Record<PropertyType, ScheduleDef[]> = {
+  building: SCHEDULE_REFORM,
+  land: SCHEDULE_REFORM,
+  kenuri: SCHEDULE_REFORM,
+  mansion: SCHEDULE_REFORM,
+  subdivision: SCHEDULE_SUBDIVISION,
+};
+
+/** 後方互換: 既定（再販）スケジュール定義 */
+export const SCHEDULE_DEFS = SCHEDULE_REFORM;
+
+/** 物件タイプのスケジュール定義を引く */
+function scheduleDefsFor(type: PropertyType): ScheduleDef[] {
+  return SCHEDULE_DEFS_BY_TYPE[type] ?? SCHEDULE_REFORM;
+}
 
 /** YYYY-MM-DD の文字列に日数を加算して YYYY-MM-DD を返す（不正な入力は空文字） */
 function addDays(baseDate: string, days: number): string {
@@ -352,23 +430,26 @@ function addDays(baseDate: string, days: number): string {
  * 起点日（①売買契約日）から各工程の予定日を標準経過日数で自動計算する。
  * 既存の入力済み日付は上書きする（やり直し前提）。
  */
-export function autoFillSchedule(baseDate: string): ScheduleStep[] {
-  return SCHEDULE_DEFS.map((s) => ({ key: s.key, label: s.label, date: addDays(baseDate, s.offsetDays) }));
+export function autoFillSchedule(baseDate: string, type: PropertyType = "building"): ScheduleStep[] {
+  return scheduleDefsFor(type).map((s) => ({ key: s.key, label: s.label, date: addDays(baseDate, s.offsetDays) }));
 }
 
-export function createSchedule(): ScheduleStep[] {
-  return SCHEDULE_DEFS.map((s) => ({ key: s.key, label: s.label, date: "" }));
+export function createSchedule(type: PropertyType = "building"): ScheduleStep[] {
+  return scheduleDefsFor(type).map((s) => ({ key: s.key, label: s.label, date: "" }));
 }
 
 /**
- * 既存案件のスケジュールを最新の定義に合わせて再構成する。
- *  ・ラベルは最新の定義（SCHEDULE_DEFS）で上書き（例:「見積確定（専務）」→「見積確定」）
- *  ・入力済みの日付は key 一致で引き継ぐ
+ * 既存案件のスケジュールを物件タイプの最新定義に合わせて再構成する。
+ *  ・ラベルは最新の定義で上書き（例:「見積確定（専務）」→「見積確定」、分譲地は造成工程に切替）
+ *  ・入力済みの日付は key 一致で引き継ぐ（タイプを跨いでも共通keyは保持）
  *  ・定義に無い旧ステップは破棄する
  */
-export function reconcileSchedule(stored: ScheduleStep[] | undefined): ScheduleStep[] {
+export function reconcileSchedule(
+  stored: ScheduleStep[] | undefined,
+  type: PropertyType = "building"
+): ScheduleStep[] {
   const byKey = new Map((stored ?? []).map((s) => [s.key, s]));
-  return SCHEDULE_DEFS.map((d) => ({ key: d.key, label: d.label, date: byKey.get(d.key)?.date ?? "" }));
+  return scheduleDefsFor(type).map((d) => ({ key: d.key, label: d.label, date: byKey.get(d.key)?.date ?? "" }));
 }
 
 /** 指定状態の件数（ラベル未入力の予備項目は除外） */

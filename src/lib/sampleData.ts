@@ -79,6 +79,34 @@ export const SAMPLE_CALC: Record<PropertyType, CalcInput> = {
     expenses: { fireInsurance: 2, defectInsurance: 10, removal: 50 },
     selling: { sellBrokerage: 108, advertising: 10, consumptionTax: 50, mgmtRepair: 15 },
   },
+  // 分譲地：用地を仕入れて造成し、3区画（各50坪×22万円/坪＝1,100万円）に分譲する想定
+  subdivision: {
+    propertyType: "subdivision",
+    sellPrice: 3300, // 区画合計（lots から自動算出される値と一致）
+    lots: [
+      { id: genId(), name: "A区画", areaSqm: 165.29, tsubo: 50, unitPrice: 22 },
+      { id: genId(), name: "B区画", areaSqm: 165.29, tsubo: 50, unitPrice: 22 },
+      { id: genId(), name: "C区画", areaSqm: 165.29, tsubo: 50, unitPrice: 22 },
+    ],
+    acquisition: {
+      purchase: 1500,
+      registration: 30,
+      demolition: 230,
+      fixedTaxProration: 5,
+      acquisitionTax: 25,
+      bankCost: 20,
+    },
+    expenses: {
+      survey: 80,
+      devPermit: 40,
+      devEarthwork: 300,
+      devRoad: 250,
+      devWaterMain: 200,
+      devDrainage: 100,
+      subdivisionReg: 30,
+    },
+    selling: { sellBrokerage: 105, advertising: 20 },
+  },
 };
 
 /** 期待値（テスト用） */
@@ -90,6 +118,7 @@ export const SAMPLE_EXPECTED: Record<
   land: { grossProfit: 245, grossMarginPct: 33, operatingProfit: 204, operatingMarginPct: 27 },
   kenuri: { grossProfit: 393, grossMarginPct: 16, operatingProfit: 253, operatingMarginPct: 10 },
   mansion: { grossProfit: 382, grossMarginPct: 11, operatingProfit: 199, operatingMarginPct: 6 },
+  subdivision: { grossProfit: 490, grossMarginPct: 15, operatingProfit: 365, operatingMarginPct: 11 },
 };
 
 const SAMPLE_NAMES: Record<PropertyType, string> = {
@@ -97,6 +126,7 @@ const SAMPLE_NAMES: Record<PropertyType, string> = {
   land: "サンプル：更地土地再販",
   kenuri: "サンプル：新築建売",
   mansion: "サンプル：区分マンション再販",
+  subdivision: "サンプル：分譲地造成",
 };
 
 /** 既定のシナリオ（強気/標準/弱気） */
@@ -157,7 +187,7 @@ export function createSampleProject(type: PropertyType, companyId = DEFAULT_COMP
       rosenka: "",
       checklist: createChecklist(type),
       checklistPassLine: defaultPassLine(type),
-      schedule: createSchedule(),
+      schedule: createSchedule(type),
       approverStaff: "",
       approverManager: "",
       approverPresident: "",

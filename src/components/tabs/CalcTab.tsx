@@ -24,10 +24,14 @@ import {
   receivedBrokerage,
   consolidatedProfit,
   breakEvenPrice,
+  sumLotsPrice,
+  sumLotsTsubo,
+  avgLotUnitPrice,
+  lotPrice,
 } from "@/lib/calc";
-import { reconcileChecklist, defaultPassLine } from "@/lib/checklist";
+import { reconcileChecklist, reconcileSchedule, defaultPassLine } from "@/lib/checklist";
 import { fmtMan, fmtPct, genId } from "@/lib/format";
-import { CalcInput, CustomItem, PropertyType, PROPERTY_TYPE_LABELS } from "@/lib/types";
+import { CalcInput, CustomItem, Lot, PropertyType, PROPERTY_TYPE_LABELS } from "@/lib/types";
 
 /** 計算グループ名 → 追加費目を格納する CalcInput のフィールド名 */
 const EXTRA_FIELD = {
@@ -52,13 +56,30 @@ export function CalcTab() {
     setCalc({ [group]: { ...calc[group], [key]: v } } as Partial<CalcInput>);
   }
   function changeType(t: PropertyType) {
-    // タイプ変更: 計算入力のタイプを更新し、チェックリストと合格ラインも種別に合わせて再構成
+    // タイプ変更: 計算入力のタイプを更新し、チェックリスト・合格ライン・スケジュールも種別に合わせて再構成
     const checklist = reconcileChecklist(current.ringi.checklist, t);
+    const schedule = reconcileSchedule(current.ringi.schedule, t);
     update({
       propertyType: t,
       calc: { ...calc, propertyType: t },
-      ringi: { ...current.ringi, checklist, checklistPassLine: defaultPassLine(t) },
+      ringi: { ...current.ringi, checklist, checklistPassLine: defaultPassLine(t), schedule },
     });
+  }
+
+  // ---------------- 分譲地：区画（Lot）の操作。総販売価格は区画合計を sellPrice に反映 ----------------
+  const isSubdivision = calc.propertyType === "subdivision";
+  const lots = calc.lots ?? [];
+  function setLots(next: Lot[]) {
+    setCalc({ lots: next, sellPrice: sumLotsPrice(next) });
+  }
+  function addLot() {
+    setLots([...lots, { id: genId(), name: `${lots.length + 1}号地`, areaSqm: undefined, tsubo: undefined, unitPrice: undefined }]);
+  }
+  function patchLot(id: string, patch: Partial<Lot>) {
+    setLots(lots.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+  }
+  function removeLot(id: string) {
+    setLots(lots.filter((l) => l.id !== id));
   }
 
   // ---------------- 追加費目（手動で足す費目）の操作 ----------------
@@ -127,13 +148,21 @@ export function CalcTab() {
               options={Object.entries(PROPERTY_TYPE_LABELS).map(([value, label]) => ({ value, label }))}
             />
           </Field>
-          <Field label="販売価格">
-            <NumberInput value={calc.sellPrice} onChangeNumber={(n) => setCalc({ sellPrice: n })} hintYen />
-          </Field>
+          {isSubdivision ? (
+            <Field label="総販売価格（区画合計・自動）">
+              <div className="rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-right text-sm font-bold text-brand-600 dark:text-brand-100">
+                {fmtMan(sumLotsPrice(lots))} 万円
+              </div>
+            </Field>
+          ) : (
+            <Field label="販売価格">
+              <NumberInput value={calc.sellPrice} onChangeNumber={(n) => setCalc({ sellPrice: n })} hintYen />
+            </Field>
+          )}
         </div>
 
         {/* 坪単価（土地・マンションのみ）。面積㎡を入れると坪数を自動換算し、坪単価を自動計算 */}
-        {showTsubo && (
+        {showTsubo && !isSubdivision && (
           <div className="mt-3 border-t border-border pt-3">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <Field label={`${tsuboLabel}（㎡）`} hint="坪数を自動換算">
@@ -156,6 +185,74 @@ export function CalcTab() {
           </div>
         )}
       </Card>
+
+      {/* 分譲地：区画割（各区画の面積・坪単価から総販売価格を自動集計） */}
+      {isSubdivision && (
+        <Card>
+          <CardHeader
+            title="区画割（分譲計画）"
+            desc="各区画の面積・坪単価を入力。総販売価格は自動集計されます"
+            action={<Badge tone="brand">{fmtMan(sumLotsPrice(lots))} 万円</Badge>}
+          />
+          <div className="divide-y divide-border">
+            {lots.length === 0 && (
+              <p className="px-4 py-6 text-center text-xs text-muted">「＋ 区画を追加」で区画を登録してください。</p>
+            )}
+            {lots.map((l) => (
+              <div key={l.id} className="px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <TextInput
+                    value={l.name}
+                    placeholder="区画名（例：1号地）"
+                    onChange={(e) => patchLot(l.id, { name: e.target.value })}
+                    className="flex-1 text-sm"
+                  />
+                  <span className="shrink-0 text-sm font-bold text-brand-600 dark:text-brand-100">
+                    {fmtMan(lotPrice(l))} 万円
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeLot(l.id)}
+                    className="shrink-0 rounded-lg px-2 py-1.5 text-xs text-red-600 hover:bg-red-500/10 dark:text-red-400"
+                    aria-label="この区画を削除"
+                  >
+                    削除
+                  </button>
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  <Field label="面積（㎡）">
+                    <NumberInput
+                      value={l.areaSqm}
+                      suffix="㎡"
+                      onChangeNumber={(n) => patchLot(l.id, { areaSqm: n, tsubo: sqmToTsubo(n) })}
+                    />
+                  </Field>
+                  <Field label="坪数">
+                    <NumberInput value={l.tsubo} suffix="坪" onChangeNumber={(n) => patchLot(l.id, { tsubo: n })} />
+                  </Field>
+                  <Field label="坪単価">
+                    <NumberInput value={l.unitPrice} suffix="万/坪" onChangeNumber={(n) => patchLot(l.id, { unitPrice: n })} />
+                  </Field>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-border p-3">
+            <Button variant="secondary" className="w-full min-h-[40px] text-xs" onClick={addLot}>
+              ＋ 区画を追加
+            </Button>
+          </div>
+          {/* 区画サマリー */}
+          {lots.length > 0 && (
+            <div className="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-4">
+              <LotStat label="区画数" value={`${lots.length} 区画`} />
+              <LotStat label="合計坪数" value={`${fmtMan(sumLotsTsubo(lots))} 坪`} />
+              <LotStat label="平均坪単価" value={`${fmtMan(avgLotUnitPrice(lots))} 万/坪`} />
+              <LotStat label="総販売価格" value={`${fmtMan(sumLotsPrice(lots))} 万円`} />
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* 補助計算の入力（評価額・日割り） */}
       <Card>
@@ -361,6 +458,15 @@ function ItemGroup({
         </Button>
       </div>
     </Card>
+  );
+}
+
+function LotStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-surface p-2.5 text-center">
+      <div className="text-[10px] text-muted">{label}</div>
+      <div className="text-sm font-bold text-fg">{value}</div>
+    </div>
   );
 }
 

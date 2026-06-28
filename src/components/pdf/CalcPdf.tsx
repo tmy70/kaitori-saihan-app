@@ -2,7 +2,17 @@
 import React from "react";
 import { Document, View, Text, BasePage, styles, COLORS } from "./common";
 import { Company, Project } from "@/lib/types";
-import { calculate, tsuboUnitPrice, usesTsuboPrice, consolidatedProfit, receivedBrokerage } from "@/lib/calc";
+import {
+  calculate,
+  tsuboUnitPrice,
+  usesTsuboPrice,
+  consolidatedProfit,
+  receivedBrokerage,
+  lotPrice,
+  sumLotsPrice,
+  sumLotsTsubo,
+  avgLotUnitPrice,
+} from "@/lib/calc";
 import { ACQUISITION_ITEMS, EXPENSE_ITEMS, SELLING_ITEMS, ItemDef } from "@/lib/itemDefs";
 import { fmtMan, fmtPct } from "@/lib/format";
 import { PROPERTY_TYPE_LABELS } from "@/lib/types";
@@ -57,6 +67,9 @@ export function CalcPdf({ project, company }: { project: Project; company?: Comp
   // 坪単価（土地・マンションのみ）
   const showTsubo = usesTsuboPrice(c.propertyType);
   const unitPrice = tsuboUnitPrice(c.sellPrice, c.tsubo);
+  // 分譲地：区画一覧
+  const isSubdivision = c.propertyType === "subdivision";
+  const lots = c.lots ?? [];
   return (
     <Document>
       <BasePage company={company}>
@@ -80,6 +93,33 @@ export function CalcPdf({ project, company }: { project: Project; company?: Comp
               {fmtMan(unitPrice)} 万円/坪{c.tsubo ? `（${fmtMan(c.tsubo)} 坪）` : ""}
             </Text>
           </View>
+        )}
+
+        {/* 分譲地：区画別の販売明細 */}
+        {isSubdivision && lots.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>区画別 販売明細</Text>
+            <View style={{ flexDirection: "row", backgroundColor: COLORS.light }}>
+              <Text style={[styles.td, { width: "34%", fontWeight: "bold" }]}>区画</Text>
+              <Text style={[styles.td, { width: "22%", textAlign: "right", fontWeight: "bold" }]}>坪数</Text>
+              <Text style={[styles.td, { width: "22%", textAlign: "right", fontWeight: "bold" }]}>坪単価</Text>
+              <Text style={[styles.td, { width: "22%", textAlign: "right", fontWeight: "bold" }]}>価格</Text>
+            </View>
+            {lots.map((l) => (
+              <View key={l.id} style={{ flexDirection: "row" }}>
+                <Text style={[styles.td, { width: "34%" }]}>{l.name || "（区画）"}</Text>
+                <Text style={[styles.td, { width: "22%", textAlign: "right" }]}>{fmtMan(l.tsubo ?? 0)} 坪</Text>
+                <Text style={[styles.td, { width: "22%", textAlign: "right" }]}>{fmtMan(l.unitPrice ?? 0)} 万/坪</Text>
+                <Text style={[styles.td, { width: "22%", textAlign: "right" }]}>{fmtMan(lotPrice(l))} 万円</Text>
+              </View>
+            ))}
+            <View style={{ flexDirection: "row", backgroundColor: COLORS.light }}>
+              <Text style={[styles.td, { width: "34%", fontWeight: "bold" }]}>合計（{lots.length}区画）</Text>
+              <Text style={[styles.td, { width: "22%", textAlign: "right", fontWeight: "bold" }]}>{fmtMan(sumLotsTsubo(lots))} 坪</Text>
+              <Text style={[styles.td, { width: "22%", textAlign: "right" }]}>平均{fmtMan(avgLotUnitPrice(lots))}</Text>
+              <Text style={[styles.td, { width: "22%", textAlign: "right", fontWeight: "bold", color: COLORS.brand }]}>{fmtMan(sumLotsPrice(lots))} 万円</Text>
+            </View>
+          </>
         )}
 
         <Text style={styles.sectionTitle}>取得原価</Text>

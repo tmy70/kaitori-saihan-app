@@ -9,11 +9,14 @@ import {
   tsuboUnitPrice,
   receivedBrokerage,
   consolidatedProfit,
+  sumLotsPrice,
+  sumLotsTsubo,
+  avgLotUnitPrice,
 } from "./calc";
 import { SAMPLE_CALC, SAMPLE_EXPECTED } from "./sampleData";
 import { PropertyType } from "./types";
 
-const TYPES: PropertyType[] = ["building", "land", "kenuri", "mansion"];
+const TYPES: PropertyType[] = ["building", "land", "kenuri", "mansion", "subdivision"];
 
 describe("calculate: サンプルの期待値と一致する", () => {
   for (const t of TYPES) {
@@ -63,6 +66,26 @@ describe("坪単価", () => {
     expect(tsuboUnitPrice(750, 50)).toBe(15); // 750万 ÷ 50坪 = 15万/坪
     expect(tsuboUnitPrice(750, 0)).toBe(0); // 坪数0は0
     expect(tsuboUnitPrice(750, undefined)).toBe(0);
+  });
+});
+
+describe("分譲地の区画集計", () => {
+  const lots = [
+    { id: "1", name: "A", tsubo: 50, unitPrice: 22 },
+    { id: "2", name: "B", tsubo: 40, unitPrice: 25 },
+  ];
+  it("総販売価格 = Σ(坪数×坪単価)", () => {
+    expect(sumLotsPrice(lots)).toBe(50 * 22 + 40 * 25); // 1100 + 1000 = 2100
+  });
+  it("合計坪数", () => {
+    expect(sumLotsTsubo(lots)).toBe(90);
+  });
+  it("平均坪単価 = 総販売価格 ÷ 合計坪数", () => {
+    expect(avgLotUnitPrice(lots)).toBeCloseTo(2100 / 90, 2);
+  });
+  it("区画なしは0", () => {
+    expect(sumLotsPrice([])).toBe(0);
+    expect(avgLotUnitPrice(undefined)).toBe(0);
   });
 });
 

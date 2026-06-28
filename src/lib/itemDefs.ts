@@ -69,6 +69,16 @@ export const ACQUISITION_ITEMS: Record<PropertyType, ItemDef[]> = {
     { key: "design", label: "設計料" },
     { key: "bankCost", label: "銀行諸費用" },
   ],
+  // 分譲地：用地取得にかかる原価（造成費は経費側にまとめる）
+  subdivision: [
+    { key: "purchase", label: "仕入代（用地買取価格）" },
+    { key: "buyFee", label: "購入時手数料（満額）" },
+    { key: "registration", label: "登記費用・印紙代" },
+    { key: "demolition", label: "既存建物解体費用" },
+    { key: "fixedTaxProration", label: "固都税精算金", auto: "taxProration" },
+    { key: "acquisitionTax", label: "不動産取得税", auto: "acquisitionTax" },
+    { key: "bankCost", label: "銀行諸費用" },
+  ],
 };
 
 /** 経費の共通費目（全タイプ） */
@@ -95,11 +105,30 @@ const EXPENSE_SITEWORK: ItemDef[] = [
  * 経費の費目（タイプ別）。
  * 「その他自由記載項目」は各グループ共通の「＋費目を追加」ボタンで自由に追加できる。
  */
+/**
+ * 分譲地の造成・整備費（経費）。区画分譲のための造成計画の中心となる費目群。
+ * 「金額の入っていない費目は印刷で非表示」になるため、該当しない項目は0のままでよい。
+ */
+const EXPENSE_DEVELOPMENT: ItemDef[] = [
+  { key: "devPermit", label: "開発許可申請費用", note: "都市計画法29条等" },
+  { key: "survey", label: "測量・区画割設計費用" },
+  { key: "devEarthwork", label: "造成工事費（整地・盛土切土）" },
+  { key: "devRoad", label: "道路築造工事費" },
+  { key: "devWaterMain", label: "上下水道本管・引込工事費" },
+  { key: "devUtility", label: "電気・ガス・通信引込費用" },
+  { key: "devDrainage", label: "排水・調整池・雨水設備費用" },
+  { key: "retainingWall", label: "擁壁・法面工事費用" },
+  { key: "subdivisionReg", label: "分筆・地目変更登記費用" },
+  { key: "infraContribution", label: "公共施設負担金・受益者負担金" },
+];
+
 export const EXPENSE_ITEMS: Record<PropertyType, ItemDef[]> = {
   building: [...EXPENSE_COMMON, ...EXPENSE_SITEWORK],
   land: [...EXPENSE_COMMON],
   kenuri: [...EXPENSE_COMMON],
   mansion: [...EXPENSE_COMMON, ...EXPENSE_SITEWORK],
+  // 分譲地は造成費が主役。共通費（火災保険等）も使えるよう末尾に付ける。
+  subdivision: [...EXPENSE_DEVELOPMENT, { key: "fireInsurance", label: "火災保険" }, { key: "removal", label: "家財撤去・庭木伐採" }],
 };
 
 /** 販売経費の費目（全タイプ共通） */

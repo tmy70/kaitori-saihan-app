@@ -3,15 +3,28 @@
 // 金額の単位は原則「万円」（PDF/事業計画書出力時のみ円換算する）
 // ============================================================
 
-/** 物件タイプ（4種） */
-export type PropertyType = "building" | "land" | "kenuri" | "mansion";
+/** 物件タイプ（5種） */
+export type PropertyType = "building" | "land" | "kenuri" | "mansion" | "subdivision";
 
 export const PROPERTY_TYPE_LABELS: Record<PropertyType, string> = {
   building: "建物リフォーム再販",
   land: "土地再販",
   kenuri: "建売（新築建売）",
   mansion: "マンション再販",
+  subdivision: "分譲地（造成・区画分譲）",
 };
+
+/**
+ * 分譲地の1区画（造成して区画分譲する際の販売単位）。
+ * 区画ごとに面積・坪単価を持ち、販売価格＝坪数×坪単価（万円）で自動算出する。
+ */
+export interface Lot {
+  id: string;
+  name: string; // 区画名・番号（例: A区画 / 1号地）
+  areaSqm?: number; // 区画面積（㎡）
+  tsubo?: number; // 区画の坪数（㎡から自動換算・手入力可）
+  unitPrice?: number; // 坪単価（万円/坪）
+}
 
 /** 会社（発行体）マスタ */
 export interface Company {
@@ -65,6 +78,8 @@ export interface CalcInput {
   showZeroInPdf?: boolean; // true で金額0・未入力の費目もPDFに表示（既定: 非表示で1ページに収める）
   // 連結利益用
   groupBrokerage?: boolean; // true: 自社グループが販売仲介し、受取仲介手数料を連結利益に加算する
+  // 分譲地（subdivision）用：区画一覧。総販売価格は各区画の合計（sellPrice に反映）
+  lots?: Lot[];
 }
 
 /** 計算結果（自動算出） */

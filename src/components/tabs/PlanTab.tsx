@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardHeader, Button, TextArea, Badge } from "@/components/ui";
-import { calculate, calcBrokerage, breakEvenPrice, tsuboUnitPrice, usesTsuboPrice, consolidatedProfit, receivedBrokerage } from "@/lib/calc";
+import { calculate, calcBrokerage, breakEvenPrice, tsuboUnitPrice, usesTsuboPrice, consolidatedProfit, receivedBrokerage, lotPrice, sumLotsTsubo, avgLotUnitPrice } from "@/lib/calc";
 import { ngLabels } from "@/lib/checklist";
 import { ACQUISITION_ITEMS, EXPENSE_ITEMS, SELLING_ITEMS, ItemDef } from "@/lib/itemDefs";
 import { fmtMan, fmtPct, fmtYen, manToYen } from "@/lib/format";
@@ -38,9 +38,20 @@ export function PlanTab() {
     // 坪単価（土地・マンションのみ）
     const showTsubo = usesTsuboPrice(current.propertyType);
     const unitPrice = tsuboUnitPrice(c.sellPrice, c.tsubo);
+    const isSubdivision = current.propertyType === "subdivision";
+    const lots = c.lots ?? [];
     const tsuboLine =
       showTsubo && unitPrice > 0
         ? `- 坪単価: ${fmtMan(unitPrice)} 万円/坪${c.tsubo ? `（${fmtMan(c.tsubo)} 坪）` : ""}`
+        : isSubdivision && lots.length > 0
+        ? `- 区画数: ${lots.length}区画 / 合計${fmtMan(sumLotsTsubo(lots))}坪 / 平均坪単価${fmtMan(avgLotUnitPrice(lots))}万円/坪`
+        : "";
+    // 分譲地の区画別明細（プロンプトに添付）
+    const lotsText =
+      isSubdivision && lots.length > 0
+        ? `\n\n# 区画別 販売明細（改変禁止）\n${lots
+            .map((l) => `- ${l.name || "区画"}: ${fmtMan(l.tsubo ?? 0)}坪 × ${fmtMan(l.unitPrice ?? 0)}万円/坪 = ${fmtMan(lotPrice(l))}万円`)
+            .join("\n")}`
         : "";
     const numbers = [
       `- 販売価格: ${fmtMan(c.sellPrice)} 万円`,
@@ -127,6 +138,8 @@ export function PlanTab() {
     const tsuboRule =
       showTsubo && unitPrice > 0
         ? "- 販売計画では坪単価（万円/坪）を必ず明記し、想定販売価格＝坪単価×坪数 の形で根拠を示すこと。\n"
+        : isSubdivision
+        ? "- 本件は分譲地（造成・区画分譲）である。販売計画では区画割（区画数・各区画の面積/坪単価）と造成計画（開発許可の要否・造成/道路/上下水道/排水等）を具体的に記述し、総販売価格＝各区画の坪単価×坪数の合計 として根拠を示すこと。収支計画では造成費を主要原価として扱うこと。\n"
         : "";
 
     return `あなたは日本の中小不動産会社の事業計画書を作成する専門家です。
@@ -151,7 +164,7 @@ ${numbers}
 ${ringiText}
 
 # チェックリストの懸念点（NG項目）
-${ngText}${yenBreakdown}${simText}
+${ngText}${lotsText}${yenBreakdown}${simText}
 
 上記をもとに「${docName}事業計画書」の本文を作成してください。`;
   }

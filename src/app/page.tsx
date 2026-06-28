@@ -71,7 +71,7 @@ export default function HomePage() {
     for (const p of all) {
       if (isSampleProject(p)) await db.deleteProject(p.id);
     }
-    const types: PropertyType[] = ["building", "land", "kenuri", "mansion"];
+    const types: PropertyType[] = ["building", "land", "kenuri", "mansion", "subdivision"];
     for (const t of types) {
       await db.saveProject(createSampleProject(t, DEFAULT_COMPANY_ID));
     }

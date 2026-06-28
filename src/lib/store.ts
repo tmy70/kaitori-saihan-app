@@ -20,12 +20,13 @@ function normalizeProject(p: Project): Project {
       acquisitionExtra: p.calc.acquisitionExtra ?? [],
       expensesExtra: p.calc.expensesExtra ?? [],
       sellingExtra: p.calc.sellingExtra ?? [],
+      lots: p.calc.lots ?? [],
     },
     ringi: {
       ...p.ringi,
       checklist: reconcileChecklist(p.ringi.checklist, p.propertyType),
       checklistPassLine: p.ringi.checklistPassLine ?? defaultPassLine(p.propertyType),
-      schedule: reconcileSchedule(p.ringi.schedule),
+      schedule: reconcileSchedule(p.ringi.schedule, p.propertyType),
     },
   };
 }
