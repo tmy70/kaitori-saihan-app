@@ -45,10 +45,12 @@ export default function HomePage() {
 
   async function handleDuplicate(p: Project) {
     // 複製は常に「自分のマイ案件」になる（サンプルを複製しても編集可能な自分の案件に）
+    // 名前が「サンプル：」で始まるとサンプル判定されてしまうため、接頭辞を取り除く
+    const baseName = p.name.replace(/^サンプル：/, "");
     const copy: Project = {
       ...structuredClone(p),
       id: genId(),
-      name: p.name + "（複製）",
+      name: baseName + "（複製）",
       isSample: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
