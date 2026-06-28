@@ -5,7 +5,7 @@
 // ============================================================
 import { useMemo } from "react";
 import { useStore } from "@/lib/store";
-import { Card, CardHeader, NumberInput, TextInput, Field, Button, Badge, Select, cn } from "@/components/ui";
+import { Card, CardHeader, NumberInput, TextInput, Field, Button, Badge, Select, Toggle, cn } from "@/components/ui";
 import {
   ACQUISITION_ITEMS,
   EXPENSE_ITEMS,
@@ -18,6 +18,12 @@ import {
   calcBrokerage,
   calcAcquisitionTax,
   calcTaxProration,
+  sqmToTsubo,
+  tsuboUnitPrice,
+  usesTsuboPrice,
+  receivedBrokerage,
+  consolidatedProfit,
+  breakEvenPrice,
 } from "@/lib/calc";
 import { reconcileChecklist, defaultPassLine } from "@/lib/checklist";
 import { fmtMan, fmtPct, genId } from "@/lib/format";
@@ -78,6 +84,11 @@ export function CalcTab() {
   }
 
   const acqItems = ACQUISITION_ITEMS[calc.propertyType];
+  const expItems = EXPENSE_ITEMS[calc.propertyType];
+  // 坪単価（土地・マンションのみ表示）
+  const showTsubo = usesTsuboPrice(calc.propertyType);
+  const tsuboLabel = calc.propertyType === "mansion" ? "専有面積" : "土地面積";
+  const unitPrice = tsuboUnitPrice(calc.sellPrice, calc.tsubo);
 
   // 補助計算ハンドラ
   function applyAuto(item: ItemDef, group: "acquisition" | "expenses" | "selling") {
@@ -117,9 +128,33 @@ export function CalcTab() {
             />
           </Field>
           <Field label="販売価格">
-            <NumberInput value={calc.sellPrice} onChangeNumber={(n) => setCalc({ sellPrice: n })} />
+            <NumberInput value={calc.sellPrice} onChangeNumber={(n) => setCalc({ sellPrice: n })} hintYen />
           </Field>
         </div>
+
+        {/* 坪単価（土地・マンションのみ）。面積㎡を入れると坪数を自動換算し、坪単価を自動計算 */}
+        {showTsubo && (
+          <div className="mt-3 border-t border-border pt-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <Field label={`${tsuboLabel}（㎡）`} hint="坪数を自動換算">
+                <NumberInput
+                  value={calc.areaSqm}
+                  suffix="㎡"
+                  onChangeNumber={(n) => setCalc({ areaSqm: n, tsubo: sqmToTsubo(n) })}
+                />
+              </Field>
+              <Field label="坪数" hint="手入力でも上書き可">
+                <NumberInput value={calc.tsubo} suffix="坪" onChangeNumber={(n) => setCalc({ tsubo: n })} />
+              </Field>
+              <div className="col-span-2 flex flex-col justify-end sm:col-span-1">
+                <span className="mb-1 block text-xs font-medium text-muted">坪単価</span>
+                <div className="rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-right text-sm font-bold text-brand-600 dark:text-brand-100">
+                  {unitPrice > 0 ? `${fmtMan(unitPrice)} 万円/坪` : "—"}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* 補助計算の入力（評価額・日割り） */}
@@ -159,7 +194,7 @@ export function CalcTab() {
       <ItemGroup
         title="経費"
         total={result.expensesTotal}
-        items={EXPENSE_ITEMS}
+        items={expItems}
         values={calc.expenses}
         extra={extraOf("expenses")}
         onChange={(k, v) => setItem("expenses", k, v)}
@@ -192,6 +227,53 @@ export function CalcTab() {
       {/* 営業利益サマリー */}
       <Card className="p-4">
         <SummaryRow label="営業利益（粗利益−販売経費）" value={result.operatingProfit} tone={judge} strong />
+      </Card>
+
+      {/* 価格の目安（損益分岐・目標利益率） */}
+      {(() => {
+        const otherSelling = result.sellingExpenses - (calc.selling.sellBrokerage ?? 0);
+        const be0 = breakEvenPrice(result.costOfSales, 0, otherSelling, 0);
+        const be10 = breakEvenPrice(result.costOfSales, 0, otherSelling, 0.1);
+        return (
+          <Card className="p-4">
+            <h3 className="mb-2 text-sm font-bold text-fg">価格の目安</h3>
+            <SummaryRow label="損益分岐の販売価格（営業利益0）" value={be0} />
+            <SummaryRow label="目標利益率10%を満たす販売価格" value={be10} />
+            <p className="mt-2 text-[11px] leading-relaxed text-muted">
+              ※ 販売時仲介手数料（3%＋6万円）を価格連動として概算した目安です。
+            </p>
+          </Card>
+        );
+      })()}
+
+      {/* 連結利益（自社グループが販売仲介する場合） */}
+      <Card className="p-4">
+        <Toggle
+          checked={calc.groupBrokerage ?? false}
+          onChange={(v) => setCalc({ groupBrokerage: v })}
+          label="自社グループが販売仲介する（連結利益に受取手数料を加算）"
+        />
+        {calc.groupBrokerage && (
+          <div className="mt-3 border-t border-border pt-3">
+            <SummaryRow label="受取仲介手数料（税抜・3%＋6万円）" value={receivedBrokerage(calc)} />
+            <SummaryRow label="連結粗利（営業利益＋受取手数料）" value={consolidatedProfit(result, calc)} strong />
+            <p className="mt-2 text-[11px] leading-relaxed text-muted">
+              ※ 自社グループ仲介のため外部への仲介手数料支払いは発生しない前提です。販売経費の「販売時仲介手数料」は0にしてください（受取分はここで加算します）。
+            </p>
+          </div>
+        )}
+      </Card>
+
+      {/* PDF出力オプション */}
+      <Card className="p-4">
+        <Toggle
+          checked={calc.showZeroInPdf ?? false}
+          onChange={(v) => setCalc({ showZeroInPdf: v })}
+          label="0円・未入力の費目もPDFに表示する"
+        />
+        <p className="mt-2 text-[11px] leading-relaxed text-muted">
+          既定では金額の入っていない費目はPDFに印刷されません（1ページに収めるため）。すべての費目を載せたい場合はオンにしてください。
+        </p>
       </Card>
     </div>
   );
@@ -235,7 +317,7 @@ function ItemGroup({
             </div>
             <div className="mt-1.5 flex items-center gap-2">
               <div className="flex-1">
-                <NumberInput value={values[it.key] ?? 0} onChangeNumber={(n) => onChange(it.key, n)} />
+                <NumberInput value={values[it.key] ?? 0} onChangeNumber={(n) => onChange(it.key, n)} hintYen />
               </div>
               {it.auto && (
                 <Button variant="secondary" className="min-h-[40px] px-3 text-xs" onClick={() => onAuto(it)}>
@@ -266,7 +348,7 @@ function ItemGroup({
               </button>
             </div>
             <div className="mt-1.5">
-              <NumberInput value={values[c.key] ?? 0} onChangeNumber={(n) => onChange(c.key, n)} />
+              <NumberInput value={values[c.key] ?? 0} onChangeNumber={(n) => onChange(c.key, n)} hintYen />
             </div>
           </div>
         ))}

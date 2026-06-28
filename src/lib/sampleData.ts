@@ -29,6 +29,8 @@ export const SAMPLE_CALC: Record<PropertyType, CalcInput> = {
   land: {
     propertyType: "land",
     sellPrice: 750,
+    areaSqm: 176.87,
+    tsubo: 53.5,
     acquisition: {
       purchase: 100,
       registration: 20,
@@ -61,6 +63,8 @@ export const SAMPLE_CALC: Record<PropertyType, CalcInput> = {
   mansion: {
     propertyType: "mansion",
     sellPrice: 3400,
+    areaSqm: 99.58,
+    tsubo: 30.12,
     acquisition: {
       purchase: 2700,
       buyFee: 96,

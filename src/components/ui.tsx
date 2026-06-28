@@ -113,32 +113,43 @@ export function NumberInput({
   onChangeNumber,
   suffix = "万円",
   placeholder,
+  hintYen,
   ...rest
 }: {
   value: number | undefined;
   onChangeNumber: (n: number) => void;
   suffix?: string;
   placeholder?: string;
+  /** true のとき、万円入力の下に円換算（取り違え防止）を薄く表示 */
+  hintYen?: boolean;
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
+  const showHint = hintYen && Number.isFinite(value) && (value ?? 0) !== 0;
   return (
-    <div className="relative">
-      <input
-        {...rest}
-        type="text"
-        inputMode="decimal"
-        value={value === undefined || Number.isNaN(value) ? "" : String(value)}
-        placeholder={placeholder ?? "0"}
-        onChange={(e) => {
-          const raw = e.target.value.replace(/,/g, "").trim();
-          if (raw === "") return onChangeNumber(0);
-          const n = Number(raw);
-          if (!Number.isNaN(n)) onChangeNumber(n);
-        }}
-        className="w-full rounded-xl border border-border bg-surface-2 py-2.5 pl-3 pr-12 text-right text-sm font-medium text-fg outline-none transition-base focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
-      />
-      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">
-        {suffix}
-      </span>
+    <div>
+      <div className="relative">
+        <input
+          {...rest}
+          type="text"
+          inputMode="decimal"
+          value={value === undefined || Number.isNaN(value) ? "" : String(value)}
+          placeholder={placeholder ?? "0"}
+          onChange={(e) => {
+            const raw = e.target.value.replace(/,/g, "").trim();
+            if (raw === "") return onChangeNumber(0);
+            const n = Number(raw);
+            if (!Number.isNaN(n)) onChangeNumber(n);
+          }}
+          className="w-full rounded-xl border border-border bg-surface-2 py-2.5 pl-3 pr-12 text-right text-sm font-medium text-fg outline-none transition-base focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+        />
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">
+          {suffix}
+        </span>
+      </div>
+      {showHint && (
+        <span className="mt-0.5 block text-right text-[10px] text-muted">
+          = {Math.round((value as number) * 10000).toLocaleString("ja-JP")} 円
+        </span>
+      )}
     </div>
   );
 }

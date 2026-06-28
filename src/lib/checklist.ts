@@ -321,21 +321,54 @@ export function addSpareItem(items: ChecklistItem[]): ChecklistItem[] {
   ];
 }
 
-/** 再販スケジュール 9ステップの定義 */
-export const SCHEDULE_DEFS: { key: string; label: string }[] = [
-  { key: "contract", label: "①売買契約" },
-  { key: "settlement", label: "②売買決済" },
-  { key: "reformEstimate", label: "③リフォーム見積（相見積）" },
-  { key: "estimateFix", label: "④見積確定（専務）" },
-  { key: "reformStart", label: "⑤リフォーム着工" },
-  { key: "adStart", label: "⑥広告開始" },
-  { key: "reformDone", label: "⑦リフォーム完工" },
-  { key: "saleContract", label: "⑧売却契約" },
-  { key: "saleSettlement", label: "⑨売却決済（入金）" },
+/**
+ * 再販スケジュール 9ステップの定義。
+ * offsetDays: 起点（①売買契約）からの標準的な経過日数。自動日付入力の既定値。
+ */
+export const SCHEDULE_DEFS: { key: string; label: string; offsetDays: number }[] = [
+  { key: "contract", label: "①売買契約", offsetDays: 0 },
+  { key: "settlement", label: "②売買決済", offsetDays: 30 },
+  { key: "reformEstimate", label: "③リフォーム見積（相見積）", offsetDays: 32 },
+  { key: "estimateFix", label: "④見積確定", offsetDays: 39 },
+  { key: "reformStart", label: "⑤リフォーム着工", offsetDays: 45 },
+  { key: "adStart", label: "⑥広告開始", offsetDays: 50 },
+  { key: "reformDone", label: "⑦リフォーム完工", offsetDays: 75 },
+  { key: "saleContract", label: "⑧売却契約", offsetDays: 90 },
+  { key: "saleSettlement", label: "⑨売却決済（入金）", offsetDays: 120 },
 ];
 
+/** YYYY-MM-DD の文字列に日数を加算して YYYY-MM-DD を返す（不正な入力は空文字） */
+function addDays(baseDate: string, days: number): string {
+  if (!baseDate) return "";
+  const d = new Date(baseDate + "T00:00:00");
+  if (isNaN(d.getTime())) return "";
+  d.setDate(d.getDate() + days);
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+/**
+ * 起点日（①売買契約日）から各工程の予定日を標準経過日数で自動計算する。
+ * 既存の入力済み日付は上書きする（やり直し前提）。
+ */
+export function autoFillSchedule(baseDate: string): ScheduleStep[] {
+  return SCHEDULE_DEFS.map((s) => ({ key: s.key, label: s.label, date: addDays(baseDate, s.offsetDays) }));
+}
+
 export function createSchedule(): ScheduleStep[] {
-  return SCHEDULE_DEFS.map((s) => ({ ...s, date: "" }));
+  return SCHEDULE_DEFS.map((s) => ({ key: s.key, label: s.label, date: "" }));
+}
+
+/**
+ * 既存案件のスケジュールを最新の定義に合わせて再構成する。
+ *  ・ラベルは最新の定義（SCHEDULE_DEFS）で上書き（例:「見積確定（専務）」→「見積確定」）
+ *  ・入力済みの日付は key 一致で引き継ぐ
+ *  ・定義に無い旧ステップは破棄する
+ */
+export function reconcileSchedule(stored: ScheduleStep[] | undefined): ScheduleStep[] {
+  const byKey = new Map((stored ?? []).map((s) => [s.key, s]));
+  return SCHEDULE_DEFS.map((d) => ({ key: d.key, label: d.label, date: byKey.get(d.key)?.date ?? "" }));
 }
 
 /** 指定状態の件数（ラベル未入力の予備項目は除外） */

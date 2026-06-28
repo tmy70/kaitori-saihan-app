@@ -2,15 +2,16 @@
 import React from "react";
 import { Document, View, Text, BasePage, styles, COLORS, ApprovalRow } from "./common";
 import { Company, Project, PROPERTY_TYPE_LABELS } from "@/lib/types";
-import { calculate } from "@/lib/calc";
-import { countCleared, countStatus, defaultPassLine } from "@/lib/checklist";
+import { calculate, tsuboUnitPrice, usesTsuboPrice, consolidatedProfit, receivedBrokerage } from "@/lib/calc";
+import { countCleared, countStatus, defaultPassLine, ngLabels, fixableLabels } from "@/lib/checklist";
 import { fmtMan, fmtPct } from "@/lib/format";
 
+// 物件情報の1行（ラベル左・値右）。値が長くても折り返して切れないよう、値側を広めに確保する
 function KV({ label, value }: { label: string; value?: string | number }) {
   return (
     <View style={styles.row}>
-      <Text style={styles.cellLabel}>{label}</Text>
-      <Text style={[styles.cellValue, { fontWeight: "normal", textAlign: "left", width: "55%" }]}>
+      <Text style={[styles.cellLabel, { width: "32%" }]}>{label}</Text>
+      <Text style={{ width: "68%", textAlign: "left", paddingRight: 4, lineHeight: 1.4 }}>
         {value === undefined || value === "" ? "—" : String(value)}
       </Text>
     </View>
@@ -28,9 +29,15 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
   const isPass = cleared >= passLine;
   const isMansion = project.propertyType === "mansion";
 
-  // 判定状態ごとの記号・色（✓適合 / △是正可能 / ×不適合）
-  const mark = (s: string) => (s === "ok" ? "✓" : s === "fixable" ? "△" : "×");
+  // 判定状態ごとの表記・色（OK=適合 / 是正=是正可能 / NG=不適合）
+  const mark = (s: string) => (s === "ok" ? "OK" : s === "fixable" ? "是正" : "NG");
   const markColor = (s: string) => (s === "ok" ? COLORS.brand : s === "fixable" ? "#d97706" : "#dc2626");
+  // 坪単価（土地・マンションのみ）
+  const showTsubo = usesTsuboPrice(project.propertyType);
+  const unitPrice = tsuboUnitPrice(project.calc.sellPrice, project.calc.tsubo);
+  // 要確認事項（不適合・是正可能）
+  const ngs = ngLabels(r.checklist);
+  const fixables = fixableLabels(r.checklist);
 
   return (
     <Document>
@@ -93,36 +100,84 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
             判定：{isPass ? "合格" : "不合格"}
           </Text>
         </View>
+
+        {/* 要確認事項（決裁前に確認すべき不適合・是正可能項目を集約） */}
+        {(ngs.length > 0 || fixables.length > 0) && (
+          <View
+            style={{
+              borderWidth: 0.8,
+              borderColor: "#f0b4b4",
+              backgroundColor: "#fdf2f2",
+              borderRadius: 2,
+              padding: 6,
+              marginBottom: 6,
+            }}
+          >
+            <Text style={{ fontSize: 9, fontWeight: "bold", color: "#dc2626", marginBottom: 2 }}>
+              要確認事項（決裁前にご確認ください）
+            </Text>
+            {ngs.length > 0 && (
+              <Text style={{ fontSize: 8, fontWeight: "bold", color: "#dc2626", marginBottom: 1 }}>
+                ■不適合（{ngs.length}件）：{ngs.join("／")}
+              </Text>
+            )}
+            {fixables.length > 0 && (
+              <Text style={{ fontSize: 8, color: "#b45309" }}>
+                ■是正可能（{fixables.length}件）：{fixables.join("／")}
+              </Text>
+            )}
+          </View>
+        )}
         <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
           {r.checklist
             // 未入力の予備項目は出力しない
             .filter((item) => !(item.custom && (item.label ?? "").trim() === ""))
-            .map((item) => (
-              <View key={item.id} style={{ width: "50%", flexDirection: "row", paddingVertical: 1.5 }}>
-                <Text style={{ width: 12, color: markColor(item.status), fontWeight: "bold" }}>
-                  {mark(item.status)}
-                </Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 7 }}>
-                    {item.id}.{item.label}
-                    {item.status === "fixable" ? "（是正可能）" : ""}
+            .map((item) => {
+              const isNg = item.status === "ng";
+              return (
+                <View key={item.id} style={{ width: "50%", flexDirection: "row", paddingVertical: 2.5, paddingRight: 8 }}>
+                  <Text
+                    style={{
+                      width: 24,
+                      fontSize: 8.5,
+                      color: markColor(item.status),
+                      fontWeight: "bold",
+                    }}
+                  >
+                    {mark(item.status)}
                   </Text>
-                  {item.criteria ? (
-                    <Text style={{ fontSize: 6, color: COLORS.muted }}>基準: {item.criteria}</Text>
-                  ) : null}
+                  <View style={{ flex: 1 }}>
+                    {/* 不適合（NG）は太字＋赤で強調 */}
+                    <Text
+                      style={{
+                        fontSize: 9,
+                        fontWeight: isNg ? "bold" : "normal",
+                        color: isNg ? "#dc2626" : COLORS.text,
+                      }}
+                    >
+                      {item.id}.{item.label}
+                    </Text>
+                    {item.criteria ? (
+                      <Text style={{ fontSize: 7, color: COLORS.muted }}>基準: {item.criteria}</Text>
+                    ) : null}
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
         </View>
 
         <Text style={styles.sectionTitle} break>
           買取からの再販スケジュール
         </Text>
+        {/* 2列レイアウト。日付は固定幅・右揃えで列ごとにきれいに揃える（印刷時のズレ防止） */}
         <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
           {r.schedule.map((s) => (
-            <View key={s.key} style={{ width: "33.3%", flexDirection: "row", paddingVertical: 2 }}>
-              <Text style={{ fontSize: 7.5, flex: 1 }}>{s.label}</Text>
-              <Text style={{ fontSize: 7.5, fontWeight: "bold" }}>{s.date || "—"}</Text>
+            <View
+              key={s.key}
+              style={{ width: "50%", flexDirection: "row", alignItems: "flex-start", paddingVertical: 2.5, paddingRight: 12 }}
+            >
+              <Text style={{ fontSize: 8.5, flex: 1 }}>{s.label}</Text>
+              <Text style={{ fontSize: 8.5, fontWeight: "bold", width: 66, textAlign: "right" }}>{s.date || "—"}</Text>
             </View>
           ))}
         </View>
@@ -144,6 +199,20 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
           <Text style={styles.cellLabel}>販売価格（税抜）</Text>
           <Text style={styles.cellValue}>{fmtMan(project.calc.sellPrice)} 万円</Text>
         </View>
+        {showTsubo && unitPrice > 0 && (
+          <View style={styles.row}>
+            <Text style={styles.cellLabel}>坪単価</Text>
+            <Text style={styles.cellValue}>
+              {fmtMan(unitPrice)} 万円/坪{project.calc.tsubo ? `（${fmtMan(project.calc.tsubo)} 坪）` : ""}
+            </Text>
+          </View>
+        )}
+        <View style={styles.row}>
+          <Text style={styles.cellLabel}>粗利益（粗利率）</Text>
+          <Text style={styles.cellValue}>
+            {fmtMan(res.grossProfit)} 万円（{fmtPct(res.grossMargin)}）
+          </Text>
+        </View>
         <View style={styles.row}>
           <Text style={styles.cellLabel}>販売時費用</Text>
           <Text style={styles.cellValue}>{fmtMan(res.sellingExpenses)} 万円</Text>
@@ -154,6 +223,20 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
             {fmtMan(res.operatingProfit)} 万円（{fmtPct(res.operatingMargin)}）
           </Text>
         </View>
+        {project.calc.groupBrokerage && (
+          <>
+            <View style={styles.row}>
+              <Text style={styles.cellLabel}>受取仲介手数料（税抜）</Text>
+              <Text style={styles.cellValue}>{fmtMan(receivedBrokerage(project.calc))} 万円</Text>
+            </View>
+            <View style={[styles.row, { backgroundColor: COLORS.light }]}>
+              <Text style={[styles.cellLabel, { fontWeight: "bold", color: COLORS.text }]}>連結粗利（自社グループ仲介）</Text>
+              <Text style={[styles.cellValue, { color: COLORS.brand, fontSize: 11 }]}>
+                {fmtMan(consolidatedProfit(res, project.calc))} 万円
+              </Text>
+            </View>
+          </>
+        )}
 
         <Text style={styles.sectionTitle}>承認欄</Text>
         <ApprovalRow staff={r.approverStaff} manager={r.approverManager} president={r.approverPresident} />

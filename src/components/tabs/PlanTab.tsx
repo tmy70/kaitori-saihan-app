@@ -8,9 +8,10 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardHeader, Button, TextArea, Badge } from "@/components/ui";
-import { calculate, calcBrokerage, breakEvenPrice } from "@/lib/calc";
+import { calculate, calcBrokerage, breakEvenPrice, tsuboUnitPrice, usesTsuboPrice, consolidatedProfit, receivedBrokerage } from "@/lib/calc";
 import { ngLabels } from "@/lib/checklist";
-import { fmtMan, fmtPct } from "@/lib/format";
+import { ACQUISITION_ITEMS, EXPENSE_ITEMS, SELLING_ITEMS, ItemDef } from "@/lib/itemDefs";
+import { fmtMan, fmtPct, fmtYen, manToYen } from "@/lib/format";
 import { PROPERTY_TYPE_LABELS, PlanDoc } from "@/lib/types";
 import { renderPdfUrl, triggerDownload } from "@/lib/pdf";
 import { CalcPdf } from "@/components/pdf/CalcPdf";
@@ -32,16 +33,50 @@ export function PlanTab() {
   // Claude(claude.ai) にそのまま貼り付けられる完成プロンプトを組み立てる
   function buildPromptText(planType: PlanType): string {
     const isBank = planType === "bank";
+    const c = current.calc;
     const r = current.ringi;
+    // 坪単価（土地・マンションのみ）
+    const showTsubo = usesTsuboPrice(current.propertyType);
+    const unitPrice = tsuboUnitPrice(c.sellPrice, c.tsubo);
+    const tsuboLine =
+      showTsubo && unitPrice > 0
+        ? `- 坪単価: ${fmtMan(unitPrice)} 万円/坪${c.tsubo ? `（${fmtMan(c.tsubo)} 坪）` : ""}`
+        : "";
     const numbers = [
-      `- 販売価格: ${fmtMan(current.calc.sellPrice)} 万円`,
+      `- 販売価格: ${fmtMan(c.sellPrice)} 万円`,
+      tsuboLine,
       `- 取得原価: ${fmtMan(result.acquisitionCost)} 万円`,
       `- 経費: ${fmtMan(result.expensesTotal)} 万円`,
       `- 売上原価: ${fmtMan(result.costOfSales)} 万円`,
       `- 粗利益: ${fmtMan(result.grossProfit)} 万円（粗利率 ${fmtPct(result.grossMargin)}）`,
       `- 販売経費: ${fmtMan(result.sellingExpenses)} 万円`,
       `- 営業利益: ${fmtMan(result.operatingProfit)} 万円（営業利益率 ${fmtPct(result.operatingMargin)}）`,
-    ].join("\n");
+      c.groupBrokerage
+        ? `- 連結粗利（自社グループ仲介・営業利益＋受取仲介手数料${fmtMan(receivedBrokerage(c))}万円）: ${fmtMan(
+            consolidatedProfit(result, c)
+          )} 万円`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    // 銀行提出用：費目を円表記で明細化（金額0は除く）。AIが収支計画の表・本文を正確に書けるようにする。
+    function breakdown(label: string, items: ItemDef[], values: Record<string, number>): string {
+      const lines = items
+        .filter((it) => Number.isFinite(values[it.key]) && values[it.key] !== 0 && (it.label ?? "").trim() !== "")
+        .map((it) => `  - ${it.label}: ${fmtYen(manToYen(values[it.key]))} 円`);
+      return lines.length ? `【${label}】\n${lines.join("\n")}` : `【${label}】\n  - （該当なし）`;
+    }
+    const acqItems: ItemDef[] = [...ACQUISITION_ITEMS[current.propertyType], ...(c.acquisitionExtra ?? [])];
+    const expItems: ItemDef[] = [...EXPENSE_ITEMS[current.propertyType], ...(c.expensesExtra ?? [])];
+    const sellItems: ItemDef[] = [...SELLING_ITEMS, ...(c.sellingExtra ?? [])];
+    const yenBreakdown = isBank
+      ? `\n\n# 費目内訳（円・改変禁止）\n${breakdown("取得原価", acqItems, c.acquisition)}\n${breakdown(
+          "経費",
+          expItems,
+          c.expenses
+        )}\n${breakdown("販売経費", sellItems, c.selling)}`
+      : "";
 
     const ringiPairs: [string, string][] = [
       ["物件所在地", r.address],
@@ -87,8 +122,12 @@ export function PlanTab() {
 
     const docName = isBank ? "銀行提出用" : "社内方針確認用";
     const sectionRule = isBank
-      ? "事業概要 / 物件概要 / 資金計画 / 収支計画 / 販売戦略・スケジュール / リスクと対策 / 返済見通し の章を含め、冒頭に発行会社名を明記すること。"
+      ? "次の章立てに沿うこと（参考: 当社の事業計画書書式）。【事業概要】（発行会社・立地・周辺の生活利便性・商品性を具体的に記述）/【対象不動産の概要】（所在地・面積・地目/構造・築年数等）/【販売計画（商品設計）】（販売形態・想定販売単価＝坪単価・想定販売価格とその根拠）/【収支計画】（取得原価・経費・販売経費の内訳と粗利益・営業利益。下表の費目内訳の数値を用いる）/【資金計画（借入計画）】（借入希望額・必要時期・返済原資は売却代金である旨）/【リスクと対策】/【返済見通し】。冒頭に発行会社名を明記すること。"
       : "事業概要 / 物件概要 / 収支計画 / 価格変更シミュレーションの考察（複数シナリオと損益分岐を踏まえる）/ 推奨価格と根拠 / リスクと対策 の章を含め、推奨価格を明確に提案すること。";
+    const tsuboRule =
+      showTsubo && unitPrice > 0
+        ? "- 販売計画では坪単価（万円/坪）を必ず明記し、想定販売価格＝坪単価×坪数 の形で根拠を示すこと。\n"
+        : "";
 
     return `あなたは日本の中小不動産会社の事業計画書を作成する専門家です。
 以下のデータをもとに、不動産買取再販事業の「${docName}事業計画書」の本文を、日本語の堅実なビジネス文書として作成してください。
@@ -97,7 +136,7 @@ export function PlanTab() {
 - 数値は事実です。改変・創作しないこと。本文に記載する数値は下記の値をそのまま使うこと。
 - 章立ては見出しを【】で囲む形式（例:【事業概要】）にすること。
 - ${sectionRule}
-- チェックリストの懸念点（NG項目）はリスク欄に反映すること。
+${tsuboRule}- チェックリストの懸念点（NG項目）はリスク欄に反映すること。
 - 出力は本文のみ（前置きやコードブロックは不要）。
 
 # 基本情報
@@ -112,7 +151,7 @@ ${numbers}
 ${ringiText}
 
 # チェックリストの懸念点（NG項目）
-${ngText}${simText}
+${ngText}${yenBreakdown}${simText}
 
 上記をもとに「${docName}事業計画書」の本文を作成してください。`;
   }
@@ -149,25 +188,25 @@ ${ngText}${simText}
   // 雛形を入れて手書きで作成（無料・API不要）
   function manualCreate(planType: PlanType) {
     const bank = `【事業概要】
-（発行会社・本案件の概要を記載）
+（発行会社・立地・周辺の生活利便性・商品性を具体的に記載）
 
-【物件概要】
-（所在地・土地/建物面積・構造・築年数・用途地域 等）
+【対象不動産の概要】
+（所在地・地番・面積（㎡/坪）・地目/構造・築年数 等）
 
-【資金計画】
-（取得原価の内訳・自己資金/借入の想定）
+【販売計画（商品設計）】
+（販売形態・想定販売単価＝坪単価・想定販売価格とその根拠）
 
 【収支計画】
-（粗利・営業利益・利益率。下表の計算結果を参照）
+（取得原価・経費・販売経費の内訳と粗利益・営業利益。下表の円建て収支表を参照）
 
-【販売戦略・スケジュール】
-（売出方法・想定期間・各工程の予定）
+【資金計画（借入計画）】
+（借入希望額・必要時期・返済原資は売却代金である旨）
 
 【リスクと対策】
 （チェックリストの懸念点と対応方針）
 
 【返済見通し】
-（借入の返済計画）`;
+（売却決済による一括返済の見通し）`;
     const internal = `【事業概要】
 （発行会社・本案件の概要を記載）
 

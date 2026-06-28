@@ -1,5 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { calculate, calcBrokerage, calcAcquisitionTax, calcTaxProration, breakEvenPrice } from "./calc";
+import {
+  calculate,
+  calcBrokerage,
+  calcAcquisitionTax,
+  calcTaxProration,
+  breakEvenPrice,
+  sqmToTsubo,
+  tsuboUnitPrice,
+  receivedBrokerage,
+  consolidatedProfit,
+} from "./calc";
 import { SAMPLE_CALC, SAMPLE_EXPECTED } from "./sampleData";
 import { PropertyType } from "./types";
 
@@ -40,6 +50,35 @@ describe("補助計算", () => {
   });
   it("固都税精算金 = 年額×日数/365", () => {
     expect(calcTaxProration(36.5, 100)).toBeCloseTo(10, 5);
+  });
+});
+
+describe("坪単価", () => {
+  it("㎡→坪（×0.3025）", () => {
+    expect(sqmToTsubo(100)).toBe(30.25);
+    expect(sqmToTsubo(0)).toBe(0);
+    expect(sqmToTsubo(undefined)).toBe(0);
+  });
+  it("坪単価 = 販売価格 ÷ 坪数", () => {
+    expect(tsuboUnitPrice(750, 50)).toBe(15); // 750万 ÷ 50坪 = 15万/坪
+    expect(tsuboUnitPrice(750, 0)).toBe(0); // 坪数0は0
+    expect(tsuboUnitPrice(750, undefined)).toBe(0);
+  });
+});
+
+describe("連結粗利（自社グループ仲介）", () => {
+  it("groupBrokerage が無ければ受取手数料0・連結粗利=営業利益", () => {
+    const input = SAMPLE_CALC.building;
+    const r = calculate(input);
+    expect(receivedBrokerage(input)).toBe(0);
+    expect(consolidatedProfit(r, input)).toBe(r.operatingProfit);
+  });
+  it("groupBrokerage 有効なら営業利益＋(価格×3%+6万)", () => {
+    const input = { ...SAMPLE_CALC.building, groupBrokerage: true };
+    const r = calculate(input);
+    const fee = calcBrokerage(input.sellPrice); // 1680→56.4
+    expect(receivedBrokerage(input)).toBe(fee);
+    expect(consolidatedProfit(r, input)).toBeCloseTo(r.operatingProfit + fee, 5);
   });
 });
 

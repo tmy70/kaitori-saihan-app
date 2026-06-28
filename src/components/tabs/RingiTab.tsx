@@ -7,8 +7,8 @@ import { useMemo } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardHeader, Field, TextInput, TextArea, Toggle, Badge, Button, NumberInput, cn } from "@/components/ui";
 import { ChecklistItem, ChecklistStatus, RingiData } from "@/lib/types";
-import { calculate } from "@/lib/calc";
-import { countCleared, countStatus, addSpareItem, coreItemCount, defaultPassLine } from "@/lib/checklist";
+import { calculate, tsuboUnitPrice, usesTsuboPrice, consolidatedProfit, receivedBrokerage } from "@/lib/calc";
+import { countCleared, countStatus, addSpareItem, coreItemCount, defaultPassLine, autoFillSchedule } from "@/lib/checklist";
 import { fmtMan, fmtPct } from "@/lib/format";
 
 export function RingiTab() {
@@ -248,7 +248,34 @@ export function RingiTab() {
 
       {/* スケジュール */}
       <Card>
-        <CardHeader title="買取からの再販スケジュール" />
+        <CardHeader title="買取からの再販スケジュール" desc="売買契約日を起点に各工程の予定日を自動入力できます" />
+        {/* 契約日起点の自動日付入力 */}
+        <div className="flex flex-wrap items-end gap-3 border-b border-border bg-surface-2 px-4 py-3">
+          <div className="flex-1 min-w-[160px]">
+            <Field label="起点：①売買契約日">
+              <input
+                type="date"
+                value={r.schedule.find((s) => s.key === "contract")?.date ?? ""}
+                onChange={(e) => {
+                  const next = r.schedule.map((s) => (s.key === "contract" ? { ...s, date: e.target.value } : s));
+                  setRingi({ schedule: next });
+                }}
+                className="w-full rounded-xl border border-border bg-surface-2 px-2.5 py-2 text-sm text-fg outline-none focus:border-brand-500"
+              />
+            </Field>
+          </div>
+          <Button
+            variant="secondary"
+            className="min-h-[40px] text-xs"
+            onClick={() => {
+              const base = r.schedule.find((s) => s.key === "contract")?.date ?? "";
+              if (!base) return;
+              setRingi({ schedule: autoFillSchedule(base) });
+            }}
+          >
+            契約日から自動入力
+          </Button>
+        </div>
         <div className="divide-y divide-border">
           {r.schedule.map((s, idx) => (
             <div key={s.key} className="flex items-center gap-3 px-4 py-2.5">
@@ -276,6 +303,20 @@ export function RingiTab() {
           <SummaryRow label="その他経費" value={result.expensesTotal} />
           <SummaryRow label="仕入費用総額（売上原価）" value={result.costOfSales} />
           <SummaryRow label="販売価格（税抜）" value={current.calc.sellPrice} />
+          {usesTsuboPrice(current.propertyType) && tsuboUnitPrice(current.calc.sellPrice, current.calc.tsubo) > 0 && (
+            <div className="flex items-center justify-between py-1.5">
+              <span className="text-sm text-muted">坪単価</span>
+              <span className="text-sm font-medium text-fg">
+                {fmtMan(tsuboUnitPrice(current.calc.sellPrice, current.calc.tsubo))} 万円/坪
+              </span>
+            </div>
+          )}
+          <div className="flex items-center justify-between py-1.5">
+            <span className="text-sm text-muted">粗利益（粗利率）</span>
+            <span className="text-sm font-medium text-fg">
+              {fmtMan(result.grossProfit)} 万円（{fmtPct(result.grossMargin)}）
+            </span>
+          </div>
           <SummaryRow label="販売時費用" value={result.sellingExpenses} />
           <div className="mt-1 border-t border-border pt-2">
             <SummaryRow label="営業利益（最終粗利）" value={result.operatingProfit} strong />
@@ -283,6 +324,15 @@ export function RingiTab() {
               <span>営業利益率</span>
               <span>{fmtPct(result.operatingMargin)}</span>
             </div>
+            {current.calc.groupBrokerage && (
+              <div className="mt-1 border-t border-border pt-2">
+                <div className="flex items-center justify-between py-1 text-xs text-muted">
+                  <span>受取仲介手数料（税抜）</span>
+                  <span>{fmtMan(receivedBrokerage(current.calc))} 万円</span>
+                </div>
+                <SummaryRow label="連結粗利（自社グループ仲介）" value={consolidatedProfit(result, current.calc)} strong />
+              </div>
+            )}
           </div>
         </div>
       </Card>

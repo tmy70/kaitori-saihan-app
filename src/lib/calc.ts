@@ -70,6 +70,53 @@ export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+// ---------------- 坪単価 ----------------
+
+/** 1坪 = 約3.305785㎡（㎡→坪は ×0.3025） */
+export const SQM_TO_TSUBO = 0.3025;
+
+/** 面積（㎡）→ 坪数（小数第2位で丸め） */
+export function sqmToTsubo(sqm: number | undefined): number {
+  if (!Number.isFinite(sqm as number) || (sqm ?? 0) <= 0) return 0;
+  return round2((sqm as number) * SQM_TO_TSUBO);
+}
+
+/**
+ * 坪単価（万円/坪）を求める。
+ * 販売価格（万円）÷ 坪数。坪数が無ければ 0 を返す。
+ */
+export function tsuboUnitPrice(sellPrice: number, tsubo: number | undefined): number {
+  const t = Number.isFinite(tsubo as number) ? (tsubo as number) : 0;
+  if (t <= 0 || !Number.isFinite(sellPrice)) return 0;
+  return round2(sellPrice / t);
+}
+
+/** 物件タイプが坪単価表示の対象か（土地・マンション） */
+export function usesTsuboPrice(type: string): boolean {
+  return type === "land" || type === "mansion";
+}
+
+// ---------------- 連結利益（自社グループ仲介） ----------------
+
+/**
+ * 自社グループが販売仲介する場合の「受取仲介手数料（税抜・万円）」。
+ * 反響→決済を自社グループで完結させる場合、外部に支払う仲介手数料が発生しない一方、
+ * 買主側等から仲介手数料を受け取れるため、連結（グループ合算）の利益に加算する。
+ * 標準式（価格×3%＋6万円）を税抜の受取額とみなす。groupBrokerage が false なら 0。
+ */
+export function receivedBrokerage(input: CalcInput): number {
+  if (!input.groupBrokerage) return 0;
+  return calcBrokerage(input.sellPrice);
+}
+
+/**
+ * 連結粗利（万円）＝ 営業利益 ＋ 受取仲介手数料（税抜）。
+ * 自社グループ仲介でない場合は営業利益と同額。
+ */
+export function consolidatedProfit(result: CalcResult, input: CalcInput): number {
+  return round2(result.operatingProfit + receivedBrokerage(input));
+}
+
 // ---------------- 利益判定（バッジ表示用） ----------------
 
 export type ProfitJudge = "good" | "warn" | "bad";

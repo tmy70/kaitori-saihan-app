@@ -4,7 +4,7 @@
 // ============================================================
 import { create } from "zustand";
 import { AppSettings, Company, Project } from "./types";
-import { reconcileChecklist, defaultPassLine } from "./checklist";
+import { reconcileChecklist, reconcileSchedule, defaultPassLine } from "./checklist";
 import * as db from "./db";
 
 /**
@@ -25,6 +25,7 @@ function normalizeProject(p: Project): Project {
       ...p.ringi,
       checklist: reconcileChecklist(p.ringi.checklist, p.propertyType),
       checklistPassLine: p.ringi.checklistPassLine ?? defaultPassLine(p.propertyType),
+      schedule: reconcileSchedule(p.ringi.schedule),
     },
   };
 }

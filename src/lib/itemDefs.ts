@@ -22,7 +22,7 @@ export interface ItemDef {
 /** 取得原価の費目（タイプ別） */
 export const ACQUISITION_ITEMS: Record<PropertyType, ItemDef[]> = {
   building: [
-    { key: "purchase", label: "仕入代" },
+    { key: "purchase", label: "仕入代（買取価格）" },
     { key: "buyFee", label: "購入時手数料（満額）" },
     { key: "registration", label: "登記費用・印紙代" },
     { key: "reform", label: "リフォーム費用" },
@@ -34,7 +34,7 @@ export const ACQUISITION_ITEMS: Record<PropertyType, ItemDef[]> = {
     { key: "bankCost", label: "銀行諸費用" },
   ],
   land: [
-    { key: "purchase", label: "仕入代" },
+    { key: "purchase", label: "仕入代（買取価格）" },
     { key: "buyFee", label: "購入時手数料（満額）" },
     { key: "registration", label: "登記費用・印紙代" },
     { key: "demolition", label: "建物解体費用" },
@@ -46,7 +46,7 @@ export const ACQUISITION_ITEMS: Record<PropertyType, ItemDef[]> = {
     { key: "bankCost", label: "銀行諸費用" },
   ],
   kenuri: [
-    { key: "purchase", label: "仕入代" },
+    { key: "purchase", label: "仕入代（買取価格）" },
     { key: "buyFee", label: "購入時手数料（満額）" },
     { key: "registration", label: "登記費用・印紙代" },
     { key: "demolition", label: "建物解体費用" },
@@ -58,7 +58,7 @@ export const ACQUISITION_ITEMS: Record<PropertyType, ItemDef[]> = {
     { key: "bankCost", label: "銀行諸費用" },
   ],
   mansion: [
-    { key: "purchase", label: "仕入代" },
+    { key: "purchase", label: "仕入代（買取価格）" },
     { key: "buyFee", label: "購入時手数料（満額）" },
     { key: "registration", label: "登記費用・印紙代" },
     { key: "reform", label: "リフォーム費用" },
@@ -71,14 +71,36 @@ export const ACQUISITION_ITEMS: Record<PropertyType, ItemDef[]> = {
   ],
 };
 
-/** 経費の費目（全タイプ共通） */
-export const EXPENSE_ITEMS: ItemDef[] = [
+/** 経費の共通費目（全タイプ） */
+const EXPENSE_COMMON: ItemDef[] = [
   { key: "publicCharge", label: "公共負担金" },
   { key: "fireInsurance", label: "火災保険" },
   { key: "flatCert", label: "フラット適合証明書", note: "旧耐震取得可能案件のみ" },
   { key: "defectInsurance", label: "瑕疵保険加入費用", note: "1件10万円" },
   { key: "removal", label: "家財撤去・庭木伐採" },
 ];
+
+/**
+ * 経費に追加する造成・整備系の費目。
+ * 土地・建売では同等の項目を「取得原価」側に持つため、ここでは重複を避け
+ * 戸建リフォーム・マンションの経費にのみ加える。
+ */
+const EXPENSE_SITEWORK: ItemDef[] = [
+  { key: "expBoundary", label: "境界確定費用（分筆登記費用）" },
+  { key: "expWaterSupply", label: "上下水道引き込み費用" },
+  { key: "expExterior", label: "外構工事費用" },
+];
+
+/**
+ * 経費の費目（タイプ別）。
+ * 「その他自由記載項目」は各グループ共通の「＋費目を追加」ボタンで自由に追加できる。
+ */
+export const EXPENSE_ITEMS: Record<PropertyType, ItemDef[]> = {
+  building: [...EXPENSE_COMMON, ...EXPENSE_SITEWORK],
+  land: [...EXPENSE_COMMON],
+  kenuri: [...EXPENSE_COMMON],
+  mansion: [...EXPENSE_COMMON, ...EXPENSE_SITEWORK],
+};
 
 /** 販売経費の費目（全タイプ共通） */
 export const SELLING_ITEMS: ItemDef[] = [
@@ -91,6 +113,6 @@ export const SELLING_ITEMS: ItemDef[] = [
 /** 全費目（タイプを跨いだ）からラベルを引く */
 export function labelOf(type: PropertyType, group: "acq" | "exp" | "sell", key: string): string {
   const list =
-    group === "acq" ? ACQUISITION_ITEMS[type] : group === "exp" ? EXPENSE_ITEMS : SELLING_ITEMS;
+    group === "acq" ? ACQUISITION_ITEMS[type] : group === "exp" ? EXPENSE_ITEMS[type] : SELLING_ITEMS;
   return list.find((i) => i.key === key)?.label ?? key;
 }

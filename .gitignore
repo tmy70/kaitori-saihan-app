@@ -14,3 +14,6 @@ ds-bundle/
 .design-sync/learnings/
 .design-sync/node_modules
 /dist/ds.css
+
+# 参考資料（実在案件の事業計画書・個人情報を含むため公開リポジトリから除外）
+/参考（事業計画書）/
