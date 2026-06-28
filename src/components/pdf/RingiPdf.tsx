@@ -4,14 +4,15 @@ import { Document, View, Text, BasePage, styles, COLORS, ApprovalRow } from "./c
 import { Company, Project, PROPERTY_TYPE_LABELS } from "@/lib/types";
 import { calculate, tsuboUnitPrice, usesTsuboPrice, consolidatedProfit, receivedBrokerage } from "@/lib/calc";
 import { countCleared, countStatus, defaultPassLine, ngLabels, fixableLabels } from "@/lib/checklist";
-import { fmtMan, fmtPct } from "@/lib/format";
+import { fmtMan, fmtPct, areaLabel } from "@/lib/format";
 
-// 物件情報の1行（ラベル左・値右）。値が長くても折り返して切れないよう、値側を広めに確保する
+// 物件情報の1行（ラベル左・値右）。ラベルは固定幅、値は flex:1 で残り全幅を使い、
+// 長い文字（面積・路線価・査定方法等）も折り返して見切れないようにする。
 function KV({ label, value }: { label: string; value?: string | number }) {
   return (
-    <View style={styles.row}>
-      <Text style={[styles.cellLabel, { width: "32%" }]}>{label}</Text>
-      <Text style={{ width: "68%", textAlign: "left", paddingRight: 4, lineHeight: 1.4 }}>
+    <View style={[styles.row, { alignItems: "flex-start" }]}>
+      <Text style={{ width: 92, color: COLORS.muted, paddingRight: 6 }}>{label}</Text>
+      <Text style={{ flex: 1, textAlign: "left", lineHeight: 1.4 }}>
         {value === undefined || value === "" ? "—" : String(value)}
       </Text>
     </View>
@@ -38,6 +39,12 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
   // 要確認事項（不適合・是正可能）
   const ngs = ngLabels(r.checklist);
   const fixables = fixableLabels(r.checklist);
+  // 面積は計算書から自動転記（無ければ稟議書の旧テキストを使用）
+  const c = project.calc;
+  const hasBuilding = project.propertyType === "building" || project.propertyType === "kenuri";
+  const landAreaDisplay = areaLabel(c.areaSqm, c.tsubo) || r.landArea;
+  const buildingAreaDisplay = areaLabel(c.buildingAreaSqm) || r.buildingArea;
+  const exclusiveAreaDisplay = areaLabel(c.areaSqm, c.tsubo) || r.exclusiveArea;
 
   return (
     <Document>
@@ -57,8 +64,8 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
         <KV label="売却希望理由・注意点" value={r.sellReason} />
 
         <Text style={styles.sectionTitle}>物件スペック</Text>
-        <KV label="土地面積" value={r.landArea} />
-        <KV label="建物面積" value={r.buildingArea} />
+        {!isMansion && <KV label="土地面積" value={landAreaDisplay} />}
+        {hasBuilding && <KV label="建物面積" value={buildingAreaDisplay} />}
         <KV label="築年数" value={r.buildingAge} />
         <KV label="構造" value={r.structure} />
         <KV label="駐車場" value={r.parking} />
@@ -66,7 +73,7 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
           <>
             <Text style={styles.sectionTitle}>マンション情報</Text>
             <KV label="階数" value={r.floor} />
-            <KV label="専有面積" value={r.exclusiveArea} />
+            <KV label="専有面積" value={exclusiveAreaDisplay} />
             <KV label="エレベーター" value={r.hasElevator ? "有" : "無"} />
             <KV label="角部屋" value={r.cornerRoom ? "有" : "無"} />
             <KV label="駐車場" value={r.mansionParking} />

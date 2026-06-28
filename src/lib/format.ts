@@ -22,6 +22,22 @@ export function fmtManAsYen(man: number): string {
   return fmtYen(manToYen(man)) + "円";
 }
 
+/** 面積など一般数値（最大2桁小数・3桁カンマ）。0・未入力は空文字 */
+export function fmtArea(n: number | undefined | null): string {
+  if (n == null || !Number.isFinite(n) || n === 0) return "";
+  return n.toLocaleString("ja-JP", { maximumFractionDigits: 2 });
+}
+
+/** 面積の表示文字列（例: 176.87㎡（53.5坪））。両方無ければ空文字 */
+export function areaLabel(sqm?: number, tsubo?: number): string {
+  const s = fmtArea(sqm);
+  const t = fmtArea(tsubo);
+  if (s && t) return `${s}㎡（${t}坪）`;
+  if (s) return `${s}㎡`;
+  if (t) return `${t}坪`;
+  return "";
+}
+
 /** 比率(0〜1) → ％文字列 */
 export function fmtPct(ratio: number | undefined | null, digits = 1): string {
   if (ratio == null || !Number.isFinite(ratio)) return "0%";

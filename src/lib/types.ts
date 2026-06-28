@@ -71,9 +71,10 @@ export interface CalcInput {
   assessedValueBuilding?: number; // 不動産取得税: 建物評価額（万円）
   taxProrationDays?: number; // 固都税精算の日数
   taxAnnualAmount?: number; // 固都税の年額（万円）
-  // 坪単価計算用（土地・マンションで使用）
-  areaSqm?: number; // 面積（㎡）。土地は土地面積、マンションは専有面積
+  // 面積（坪単価計算・稟議書への自動転記に使用）
+  areaSqm?: number; // 主たる面積（㎡）。土地系は土地面積、マンションは専有面積
   tsubo?: number; // 坪数。面積㎡から自動換算（㎡×0.3025）するが手入力でも上書き可
+  buildingAreaSqm?: number; // 建物（戸建）面積（㎡）。建物リフォーム再販・建売で使用
   // PDF出力オプション
   showZeroInPdf?: boolean; // true で金額0・未入力の費目もPDFに表示（既定: 非表示で1ページに収める）
   /**

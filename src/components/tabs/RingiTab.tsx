@@ -5,11 +5,23 @@
 // ============================================================
 import { useMemo } from "react";
 import { useStore } from "@/lib/store";
-import { Card, CardHeader, Field, TextInput, TextArea, Toggle, Badge, Button, NumberInput, cn } from "@/components/ui";
+import { Card, CardHeader, Field, TextInput, TextArea, Toggle, Badge, Button, NumberInput, Select, cn } from "@/components/ui";
 import { ChecklistItem, ChecklistStatus, RingiData } from "@/lib/types";
 import { calculate, tsuboUnitPrice, usesTsuboPrice, consolidatedProfit, receivedBrokerage } from "@/lib/calc";
 import { countCleared, countStatus, addSpareItem, coreItemCount, defaultPassLine, autoFillSchedule } from "@/lib/checklist";
-import { fmtMan, fmtPct } from "@/lib/format";
+import { fmtMan, fmtPct, areaLabel } from "@/lib/format";
+
+/** 物件種別プルダウンの選択肢 */
+const PROPERTY_KIND_OPTIONS = [
+  "中古戸建",
+  "中古マンション",
+  "土地（更地）",
+  "土地（古家付き）",
+  "新築戸建（建売）",
+  "分譲地",
+  "区分マンション",
+  "その他",
+];
 
 export function RingiTab() {
   const current = useStore((s) => s.current)!;
@@ -18,6 +30,19 @@ export function RingiTab() {
   const company = useStore((s) => s.companies.find((c) => c.id === current.companyId));
   const result = useMemo(() => calculate(current.calc), [current.calc]);
   const isMansion = current.propertyType === "mansion";
+  const hasBuilding = current.propertyType === "building" || current.propertyType === "kenuri";
+  // 計算書から自動転記する面積表示
+  const landAreaDisplay = areaLabel(current.calc.areaSqm, current.calc.tsubo) || r.landArea;
+  const buildingAreaDisplay = areaLabel(current.calc.buildingAreaSqm) || r.buildingArea;
+  const exclusiveAreaDisplay = areaLabel(current.calc.areaSqm, current.calc.tsubo) || r.exclusiveArea;
+  // 物件種別プルダウン（旧データの自由記述値も選択肢に含める）
+  const kindOptions = [
+    { value: "", label: "（選択してください）" },
+    ...PROPERTY_KIND_OPTIONS.map((k) => ({ value: k, label: k })),
+    ...(r.propertyKind && !PROPERTY_KIND_OPTIONS.includes(r.propertyKind)
+      ? [{ value: r.propertyKind, label: r.propertyKind }]
+      : []),
+  ];
 
   function setRingi(patch: Partial<RingiData>) {
     update({ ringi: { ...r, ...patch } });
@@ -75,7 +100,7 @@ export function RingiTab() {
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="物件種別">
-              <TextInput value={r.propertyKind} onChange={(e) => setRingi({ propertyKind: e.target.value })} />
+              <Select value={r.propertyKind} onChange={(v) => setRingi({ propertyKind: v })} options={kindOptions} />
             </Field>
             <Field label="反響入口">
               <TextInput value={r.inquirySource} onChange={(e) => setRingi({ inquirySource: e.target.value })} />
@@ -90,16 +115,12 @@ export function RingiTab() {
         </div>
       </Card>
 
-      {/* 物件スペック */}
+      {/* 物件スペック（面積は計算書から自動転記） */}
       <Card>
-        <CardHeader title="物件スペック" />
+        <CardHeader title="物件スペック" desc="面積は計算書の入力から自動転記されます" />
         <div className="grid grid-cols-2 gap-3 p-4">
-          <Field label="土地面積">
-            <TextInput value={r.landArea} onChange={(e) => setRingi({ landArea: e.target.value })} placeholder="㎡ / 坪" />
-          </Field>
-          <Field label="建物面積">
-            <TextInput value={r.buildingArea} onChange={(e) => setRingi({ buildingArea: e.target.value })} placeholder="㎡" />
-          </Field>
+          {!isMansion && <ReadonlyField label="土地面積" value={landAreaDisplay} from="計算書" />}
+          {hasBuilding && <ReadonlyField label="建物面積" value={buildingAreaDisplay} from="計算書" />}
           <Field label="建物築年数">
             <TextInput value={r.buildingAge} onChange={(e) => setRingi({ buildingAge: e.target.value })} />
           </Field>
@@ -120,9 +141,7 @@ export function RingiTab() {
             <Field label="階数">
               <TextInput value={r.floor} onChange={(e) => setRingi({ floor: e.target.value })} />
             </Field>
-            <Field label="専有面積">
-              <TextInput value={r.exclusiveArea} onChange={(e) => setRingi({ exclusiveArea: e.target.value })} placeholder="㎡" />
-            </Field>
+            <ReadonlyField label="専有面積" value={exclusiveAreaDisplay} from="計算書" />
             <Field label="駐車場">
               <TextInput value={r.mansionParking} onChange={(e) => setRingi({ mansionParking: e.target.value })} />
             </Field>
@@ -353,6 +372,17 @@ export function RingiTab() {
         </div>
       </Card>
     </div>
+  );
+}
+
+/** 読み取り専用フィールド（計算書からの自動転記表示） */
+function ReadonlyField({ label, value, from }: { label: string; value?: string; from?: string }) {
+  return (
+    <Field label={label} hint={from ? `${from}から自動転記` : undefined}>
+      <div className="min-h-[42px] w-full rounded-xl border border-dashed border-border bg-surface-2 px-3 py-2.5 text-sm text-fg">
+        {value && value.trim() !== "" ? value : <span className="text-muted">—</span>}
+      </div>
+    </Field>
   );
 }
 

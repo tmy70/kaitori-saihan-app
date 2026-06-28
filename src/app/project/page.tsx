@@ -14,6 +14,7 @@ import { CalcTab } from "@/components/tabs/CalcTab";
 import { RingiTab } from "@/components/tabs/RingiTab";
 import { SimTab } from "@/components/tabs/SimTab";
 import { PlanTab } from "@/components/tabs/PlanTab";
+import { PdfExportBar } from "@/components/PdfExportBar";
 
 const TABS = [
   { key: "calc", label: "計算書" },
@@ -92,6 +93,11 @@ function ProjectEditor() {
           />
           <Badge tone="neutral">{PROPERTY_TYPE_LABELS[current.propertyType]}</Badge>
         </div>
+      </div>
+
+      {/* PDF出力（タブ外・上部に常設） */}
+      <div className="mb-4">
+        <PdfExportBar />
       </div>
 
       <Tabs tabs={TABS} active={tab} onChange={setTab} />

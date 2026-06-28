@@ -3,7 +3,7 @@
 // 事業計画書タブ（API課金なしの運用）
 // ・手書き作成（雛形入り）
 // ・手動AI：計算結果入りプロンプトをコピー → Claude(claude.ai) に貼付 → 生成文を本文へ貼り戻し
-// ・4種PDF出力
+// ※ PDF出力は画面上部の PdfExportBar に集約（このタブからは出さない）
 // ============================================================
 import { useState } from "react";
 import { useStore } from "@/lib/store";
@@ -13,10 +13,6 @@ import { ngLabels } from "@/lib/checklist";
 import { ACQUISITION_ITEMS, EXPENSE_ITEMS, SELLING_ITEMS, ItemDef } from "@/lib/itemDefs";
 import { fmtMan, fmtPct, fmtYen, manToYen } from "@/lib/format";
 import { PROPERTY_TYPE_LABELS, PlanDoc } from "@/lib/types";
-import { renderPdfUrl, triggerDownload } from "@/lib/pdf";
-import { CalcPdf } from "@/components/pdf/CalcPdf";
-import { RingiPdf } from "@/components/pdf/RingiPdf";
-import { BankPlanPdf, InternalPlanPdf } from "@/components/pdf/PlanPdf";
 
 type PlanType = "bank" | "internal";
 
@@ -24,7 +20,6 @@ export function PlanTab() {
   const current = useStore((s) => s.current)!;
   const update = useStore((s) => s.update);
   const company = useStore((s) => s.companies.find((c) => c.id === current.companyId));
-  const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<PlanType | null>(null);
 
@@ -249,39 +244,6 @@ ${ngText}${lotsText}${yenBreakdown}${simText}
     else update({ internalPlan: doc });
   }
 
-  const safeName = (current.name || "案件").replace(/[\\/:*?"<>|]/g, "_");
-
-  // PDFを別タブで開く（プレビュー表示。そこから保存・印刷できる）
-  async function dl(kind: "calc" | "ringi" | "bank" | "internal") {
-    // ポップアップブロック回避: クリック直後（生成のawait前）に空タブを開く
-    const win = window.open("", "_blank");
-    setBusy("pdf-" + kind);
-    setError(null);
-    try {
-      const map = {
-        calc: { el: <CalcPdf project={current} company={company} />, name: `計算書_${safeName}` },
-        ringi: { el: <RingiPdf project={current} company={company} />, name: `稟議書_${safeName}` },
-        bank: { el: <BankPlanPdf project={current} company={company} />, name: `事業計画書_銀行提出用_${safeName}` },
-        internal: { el: <InternalPlanPdf project={current} company={company} />, name: `事業計画書_社内用_${safeName}` },
-      } as const;
-      const { el, name } = map[kind];
-      const url = await renderPdfUrl(el);
-      if (win && !win.closed) {
-        // 別タブでプレビュー表示
-        win.location.href = url;
-      } else {
-        // タブが開けなかった場合（ブロック等）はダウンロードにフォールバック
-        triggerDownload(url, name);
-      }
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (e) {
-      if (win && !win.closed) win.close();
-      setError("PDF生成に失敗しました: " + (e instanceof Error ? e.message : ""));
-    } finally {
-      setBusy(null);
-    }
-  }
-
   return (
     <div className="space-y-4">
       {error && (
@@ -289,25 +251,6 @@ ${ngText}${lotsText}${yenBreakdown}${simText}
           {error}
         </div>
       )}
-
-      {/* PDF出力 */}
-      <Card>
-        <CardHeader title="PDF出力" desc="別タブでプレビュー表示（保存・印刷できます）" />
-        <div className="grid grid-cols-2 gap-2 p-4">
-          <Button variant="secondary" onClick={() => dl("calc")} disabled={!!busy}>
-            {busy === "pdf-calc" ? "生成中…" : "計算書 PDF"}
-          </Button>
-          <Button variant="secondary" onClick={() => dl("ringi")} disabled={!!busy}>
-            {busy === "pdf-ringi" ? "生成中…" : "稟議書 PDF"}
-          </Button>
-          <Button variant="secondary" onClick={() => dl("bank")} disabled={!!busy}>
-            {busy === "pdf-bank" ? "生成中…" : "銀行用 PDF"}
-          </Button>
-          <Button variant="secondary" onClick={() => dl("internal")} disabled={!!busy}>
-            {busy === "pdf-internal" ? "生成中…" : "社内用 PDF"}
-          </Button>
-        </div>
-      </Card>
 
       {/* 銀行提出用 */}
       <PlanEditor

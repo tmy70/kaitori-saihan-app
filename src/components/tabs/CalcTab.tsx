@@ -121,6 +121,8 @@ export function CalcTab() {
   const showTsubo = usesTsuboPrice(calc.propertyType);
   const tsuboLabel = calc.propertyType === "mansion" ? "専有面積" : "土地面積";
   const unitPrice = tsuboUnitPrice(calc.sellPrice, calc.tsubo);
+  // 建物（戸建）面積を入力するタイプ
+  const hasBuilding = calc.propertyType === "building" || calc.propertyType === "kenuri";
 
   // 補助計算ハンドラ
   function applyAuto(item: ItemDef, group: "acquisition" | "expenses" | "selling") {
@@ -172,8 +174,8 @@ export function CalcTab() {
           )}
         </div>
 
-        {/* 坪単価（土地・マンションのみ）。面積㎡を入れると坪数を自動換算し、坪単価を自動計算 */}
-        {showTsubo && !isSubdivision && (
+        {/* 面積（分譲地以外）。面積㎡を入れると坪数を自動換算。土地・マンションは坪単価も自動計算。稟議書へ自動転記される */}
+        {!isSubdivision && (
           <div className="mt-3 border-t border-border pt-3">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <Field label={`${tsuboLabel}（㎡）`} hint="坪数を自動換算">
@@ -186,12 +188,23 @@ export function CalcTab() {
               <Field label="坪数" hint="手入力でも上書き可">
                 <NumberInput value={calc.tsubo} suffix="坪" onChangeNumber={(n) => setCalc({ tsubo: n })} />
               </Field>
-              <div className="col-span-2 flex flex-col justify-end sm:col-span-1">
-                <span className="mb-1 block text-xs font-medium text-muted">坪単価</span>
-                <div className="rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-right text-sm font-bold text-brand-600 dark:text-brand-100">
-                  {unitPrice > 0 ? `${fmtMan(unitPrice)} 万円/坪` : "—"}
+              {hasBuilding && (
+                <Field label="建物面積（㎡）" hint="戸建の延床面積">
+                  <NumberInput
+                    value={calc.buildingAreaSqm}
+                    suffix="㎡"
+                    onChangeNumber={(n) => setCalc({ buildingAreaSqm: n })}
+                  />
+                </Field>
+              )}
+              {showTsubo && (
+                <div className="col-span-2 flex flex-col justify-end sm:col-span-1">
+                  <span className="mb-1 block text-xs font-medium text-muted">坪単価</span>
+                  <div className="rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-right text-sm font-bold text-brand-600 dark:text-brand-100">
+                    {unitPrice > 0 ? `${fmtMan(unitPrice)} 万円/坪` : "—"}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}
