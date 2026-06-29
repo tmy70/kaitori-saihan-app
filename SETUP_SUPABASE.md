@@ -145,28 +145,58 @@ create policy "steps_write" on public.approval_steps for all to authenticated us
 
 実行して「Success. No rows returned」と出れば完了です。
 
-## ステップ4：ログイン方式の設定
+## ステップ4：Googleログインを設定（@vivi-f.jp 限定）
 
-左メニュー **Authentication → Providers → Email** を開き、
-- **Enable Email provider**：オン
-- 社内利用なので、まずは **Confirm email（メール確認）をオフ**にすると導入がスムーズです（後でオンにも変更可）。
+「Google Cloud側」と「Supabase側」の2か所を設定します。
 
-左メニュー **Authentication → URL Configuration** の **Site URL** に、公開URL
-`https://tmy70.github.io/kaitori-saihan-app/` を設定してください。
+### 4-1. Google Cloud で OAuthクライアントを作成
+1. https://console.cloud.google.com に **@vivi-f.jp の管理者アカウント**でログイン。
+2. 上部のプロジェクト選択 → **新しいプロジェクト**（例 `kaitori-saihan`）を作成。
+3. 左メニュー **APIとサービス → OAuth同意画面**：
+   - User Type は **内部（Internal）** を選択 ← これで自動的に **@vivi-f.jp の社員だけ**が対象になります。
+   - アプリ名（例：買取再販 稟議）・サポートメールを入力して保存。
+4. **APIとサービス → 認証情報 → 認証情報を作成 → OAuth クライアント ID**：
+   - 種類：**ウェブアプリケーション**
+   - **承認済みのリダイレクト URI** に次を追加（ステップ2のProject URLを使用）：
+     `https://xxxxxxxx.supabase.co/auth/v1/callback`
+     （`xxxxxxxx` はあなたのProject URLのサブドメイン）
+   - 作成後に表示される **クライアントID** と **クライアントシークレット** を控える。
 
-## ステップ5：社員アカウントの作成
+### 4-2. Supabase にGoogleを登録
+1. Supabase 左メニュー **Authentication → Providers → Google** を開く。
+2. **Enable Sign in with Google** をオン。
+3. **クライアントID** と **クライアントシークレット** を貼り付けて保存。
+4. **Authentication → URL Configuration**：
+   - **Site URL** に `https://tmy70.github.io/kaitori-saihan-app/`
+   - **Redirect URLs** にも同じURLを追加。
 
-左メニュー **Authentication → Users → Add user** で、社員ごとにメール・初期パスワードを登録できます
-（担当・上長・社長など）。役割（上長/社長）の割り当ては、アプリ側の管理画面で行えるようにします。
+> ドメイン限定：OAuth同意画面を「内部」にしているため @vivi-f.jp 以外はログインできません。
+> アプリ側でも念のため @vivi-f.jp 以外を弾く処理を入れます。
+
+## ステップ5：役割（上長・社長）の割り当て
+
+アカウントは各自が初回「**Googleでログイン**」した時点で自動作成されます（事前登録は不要）。
+誰が上長/社長かは、アプリ内の管理画面（実装予定）、または Supabase の **Table Editor → profiles** で
+`role` を `manager`（上長）/ `president`（社長）/ `admin`（管理者）に変更して設定します。
+（既定は `staff`＝担当）
+
+## ステップ6：通知メール（Gmail送信）の準備 ※メール実装フェーズで使用
+
+回付・承認・差戻しの通知メールは、**担当者個人のGmail（SMTP）**から送信します。事前に：
+1. 送信に使うGoogleアカウントで **2段階認証をオン**。
+2. Googleアカウント → **セキュリティ → アプリパスワード** で16桁のパスワードを1つ発行。
+3. その「メールアドレス」と「アプリパスワード」を、後日Supabaseの設定欄（Edge Functionの秘密情報）に登録します。
+   - ※ アプリパスワードは私には送らず、**Supabaseの管理画面に直接登録**いただきます（手順を案内します）。
 
 ---
 
 ## このあとの流れ（開発側で実装します）
 
-1. **ログイン画面**（メール＋パスワード）と、未ログイン時のガード
+1. **Googleログイン**（@vivi-f.jp 限定）＋ 未ログイン時のガード
 2. **クラウド共有データ**へ移行（案件・会社）＋ 既存のローカル案件をクラウドへ**移行ボタン**
 3. **回付ワークフロー**：申請 → 上長承認 → 社長承認、回付先の指名、承認/差戻し＋コメント、
    「自分宛の未処理一覧」
-4. **メール通知**（回付・承認・差戻し時）※ メール送信サービス（無料枠あり）の設定を別途ご案内します
+4. **メール通知**（回付・承認・差戻し時）を **Gmail送信**で実装
 
-> **ステップ2の「Project URL」と「anon public キー」を教えていただければ、1から順に実装・公開していきます。**
+> **ステップ2の「Project URL」と「anon public キー」を教えていただければ、1（ログイン）から順に実装・公開します。**
+> Google Cloud の OAuth 設定（ステップ4）でつまずいたら、その画面の状況を教えてください。個別にご案内します。
