@@ -1,28 +1,62 @@
 "use client";
 // ============================================================
 // マイ案件一覧（ホーム）
-// 新規作成・複製・削除・会社で絞込・サンプル投入
+//
+//  タブ:   すべて / お気に入り（★） / 買取済（在庫） / 決済完了 / アーカイブ
+//  絞込:   会社・期間（今月/今年/今年度/指定）・キーワード検索
+//  集計:   絞り込み結果の粗利集計（決済完了は実績＝確定値で集計）
+//  操作:   新規作成・複製・アーカイブ・削除・サンプル投入
 // ============================================================
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Card, Badge, Modal, Select, TextInput, Field, cn } from "@/components/ui";
+import { Button, Card, Modal, Select, TextInput, Field, Tabs, cn } from "@/components/ui";
 import { toggleTheme } from "@/components/ThemeInit";
+import { ProjectCard } from "@/components/ProjectCard";
+import { SummaryPanel } from "@/components/SummaryPanel";
 import * as db from "@/lib/db";
 import { Company, Project, PropertyType, PROPERTY_TYPE_LABELS } from "@/lib/types";
-import { fmtDateTime, genId } from "@/lib/format";
-import { calculate, judgeProfit } from "@/lib/calc";
-import { fmtMan, fmtPct } from "@/lib/format";
+import { genId, today } from "@/lib/format";
+import {
+  aggregate,
+  basisDateOf,
+  inPeriod,
+  isArchived,
+  PERIOD_LABELS,
+  PeriodPreset,
+  periodRange,
+  profitOf,
+  stageOf,
+} from "@/lib/summary";
 import { createSampleProject, createEmptyProject, isSampleProject } from "@/lib/sampleData";
 import { DEFAULT_COMPANY_ID } from "@/lib/companies";
+
+/** 一覧の表示タブ */
+type ListTab = "all" | "favorite" | "acquired" | "settled" | "archived";
+
+/** 並び替え */
+type SortKey = "updated" | "date" | "profit" | "name";
+const SORT_LABELS: Record<SortKey, string> = {
+  updated: "更新が新しい順",
+  date: "日付が新しい順（決済/買取）",
+  profit: "営業利益が大きい順",
+  name: "案件名（あいうえお順）",
+};
 
 export default function HomePage() {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [filter, setFilter] = useState<string>("all");
+  const [companyFilter, setCompanyFilter] = useState<string>("all");
+  const [tab, setTab] = useState<ListTab>("all");
+  const [period, setPeriod] = useState<PeriodPreset>("all");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<SortKey>("updated");
   const [loading, setLoading] = useState(true);
   const [newOpen, setNewOpen] = useState(false);
   const [delTarget, setDelTarget] = useState<Project | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
 
   async function reload() {
     const [ps, cs] = await Promise.all([db.getAllProjects(), db.getAllCompanies()]);
@@ -39,10 +73,86 @@ export default function HomePage() {
   }, []);
 
   const companyName = (id: string) => companies.find((c) => c.id === id)?.name ?? "（不明）";
-  const shown = filter === "all" ? projects : projects.filter((p) => p.companyId === filter);
+
+  // ---------------- 絞り込み ----------------
+  const { from, to } = useMemo(
+    () => periodRange(period, today(), customFrom, customTo),
+    [period, customFrom, customTo]
+  );
+
+  // 会社・キーワード・期間で共通の絞り込み（タブ判定の前段）
+  const base = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return projects.filter((p) => {
+      if (companyFilter !== "all" && p.companyId !== companyFilter) return false;
+      if (q) {
+        const hay = `${p.name} ${p.ringi?.address ?? ""} ${p.ringi?.propertyName ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      // 期間はサンプルには適用しない（テンプレートは常に表示する）
+      if ((from || to) && !isSampleProject(p) && !inPeriod(basisDateOf(p), from, to)) return false;
+      return true;
+    });
+  }, [projects, companyFilter, query, from, to]);
+
+  // タブごとの母集合（アーカイブは通常タブから除外）
+  const live = useMemo(() => base.filter((p) => !isArchived(p)), [base]);
+  const favorites = useMemo(() => live.filter((p) => !!p.favorite), [live]);
+  const acquireds = useMemo(
+    () => live.filter((p) => !isSampleProject(p) && stageOf(p) === "acquired"),
+    [live]
+  );
+  const settleds = useMemo(
+    () => live.filter((p) => !isSampleProject(p) && stageOf(p) === "settled"),
+    [live]
+  );
+  const archiveds = useMemo(() => base.filter((p) => isArchived(p)), [base]);
+
+  const shownRaw =
+    tab === "favorite"
+      ? favorites
+      : tab === "acquired"
+      ? acquireds
+      : tab === "settled"
+      ? settleds
+      : tab === "archived"
+      ? archiveds
+      : live;
+
+  // 並び替え
+  const shown = useMemo(() => {
+    const arr = [...shownRaw];
+    arr.sort((a, b) => {
+      if (sort === "profit") {
+        return profitOf(b).result.operatingProfit - profitOf(a).result.operatingProfit;
+      }
+      if (sort === "name") return (a.name || "").localeCompare(b.name || "", "ja");
+      if (sort === "date") {
+        return (basisDateOf(b) ?? "").localeCompare(basisDateOf(a) ?? "");
+      }
+      return (b.updatedAt || "").localeCompare(a.updatedAt || "");
+    });
+    return arr;
+  }, [shownRaw, sort]);
+
   const myCases = shown.filter((p) => !isSampleProject(p));
   const samples = shown.filter((p) => isSampleProject(p));
 
+  // 集計（サンプルは除外）
+  const agg = useMemo(() => aggregate(myCases), [myCases]);
+  const periodLabel = from || to ? `${from ?? "指定なし"} 〜 ${to ?? "指定なし"}` : "";
+  const summaryTitle =
+    tab === "settled"
+      ? "決済完了の粗利集計（確定）"
+      : tab === "acquired"
+      ? "在庫（買取済）の見込み粗利"
+      : tab === "archived"
+      ? "アーカイブの集計"
+      : tab === "favorite"
+      ? "お気に入りの集計"
+      : "全案件の集計";
+
+  // ---------------- 操作 ----------------
   async function handleDuplicate(p: Project) {
     // 複製は常に「自分のマイ案件」になる（サンプルを複製しても編集可能な自分の案件に）
     // 名前が「サンプル：」で始まるとサンプル判定されてしまうため、接頭辞を取り除く
@@ -52,6 +162,12 @@ export default function HomePage() {
       id: genId(),
       name: baseName + "（複製）",
       isSample: false,
+      // 複製は「これから検討する別案件」なので、印・ステージ・実績は引き継がない
+      favorite: false,
+      stage: "reviewing",
+      archived: false,
+      acquired: false,
+      actual: undefined,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -66,8 +182,23 @@ export default function HomePage() {
     await reload();
   }
 
+  /**
+   * お気に入り／アーカイブの切替。
+   * updatedAt はあえて更新しない（並び順が「更新日時の新しい順」なので、
+   * 印を付けただけで案件が先頭に飛ぶのを防ぐ）。
+   */
+  async function toggleFavorite(p: Project) {
+    await db.saveProject({ ...p, favorite: !p.favorite });
+    await reload();
+  }
+
+  async function toggleArchive(p: Project) {
+    await db.saveProject({ ...p, archived: !p.archived });
+    await reload();
+  }
+
   async function loadSamples() {
-    // 既存サンプル（フラグ・固定ID・旧名称で判定）を一掃してから4件だけ再投入。
+    // 既存サンプル（フラグ・固定ID・旧名称で判定）を一掃してから5件だけ再投入。
     // 押すたびの無限増殖を防ぎ、過去に増殖した分も整理する。マイ案件は触らない。
     const all = await db.getAllProjects();
     for (const p of all) {
@@ -79,6 +210,8 @@ export default function HomePage() {
     }
     await reload();
   }
+
+  const filtersActive = companyFilter !== "all" || period !== "all" || !!query.trim() || sort !== "updated";
 
   return (
     <main className="px-4 pt-5">
@@ -100,33 +233,140 @@ export default function HomePage() {
       </header>
 
       {/* アクション */}
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-3 flex flex-wrap gap-2">
         <Button onClick={() => setNewOpen(true)}>＋ 新規案件</Button>
         <Button variant="secondary" onClick={loadSamples}>
           サンプル読み込み
         </Button>
       </div>
 
-      {/* 会社フィルタ */}
-      <div className="mb-4">
-        <Select
-          value={filter}
-          onChange={setFilter}
-          options={[
-            { value: "all", label: "すべての会社" },
-            ...companies.map((c) => ({ value: c.id, label: c.name })),
-          ]}
+      {/* 検索・絞り込み */}
+      <div className="mb-3 space-y-2">
+        <TextInput
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="案件名・所在地で検索"
+          aria-label="案件を検索"
         />
+        <button
+          type="button"
+          onClick={() => setFilterOpen((v) => !v)}
+          className="flex w-full items-center justify-between rounded-xl border border-border bg-surface-2 px-3 py-2 text-xs font-semibold text-muted transition-base hover:text-fg"
+        >
+          <span>
+            絞り込み・並び替え
+            {filtersActive && <span className="ml-2 rounded-full bg-brand-500/15 px-2 py-0.5 text-brand-600 dark:text-brand-100">適用中</span>}
+          </span>
+          <span>{filterOpen ? "▲" : "▼"}</span>
+        </button>
+
+        {filterOpen && (
+          <Card className="space-y-3 p-3">
+            <Field label="会社">
+              <Select
+                value={companyFilter}
+                onChange={setCompanyFilter}
+                options={[
+                  { value: "all", label: "すべての会社" },
+                  ...companies.map((c) => ({ value: c.id, label: c.name })),
+                ]}
+              />
+            </Field>
+            <Field
+              label="期間"
+              hint="決済完了は決済日、買取済は買取日、それ以外は更新日で判定します"
+            >
+              <Select
+                value={period}
+                onChange={(v) => setPeriod(v as PeriodPreset)}
+                options={(Object.keys(PERIOD_LABELS) as PeriodPreset[]).map((k) => ({
+                  value: k,
+                  label: PERIOD_LABELS[k],
+                }))}
+              />
+            </Field>
+            {period === "custom" && (
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="開始日">
+                  <TextInput type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
+                </Field>
+                <Field label="終了日">
+                  <TextInput type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+                </Field>
+              </div>
+            )}
+            <Field label="並び替え">
+              <Select
+                value={sort}
+                onChange={(v) => setSort(v as SortKey)}
+                options={(Object.keys(SORT_LABELS) as SortKey[]).map((k) => ({ value: k, label: SORT_LABELS[k] }))}
+              />
+            </Field>
+            {filtersActive && (
+              <Button
+                variant="secondary"
+                className="w-full min-h-[40px] text-xs"
+                onClick={() => {
+                  setCompanyFilter("all");
+                  setPeriod("all");
+                  setCustomFrom("");
+                  setCustomTo("");
+                  setQuery("");
+                  setSort("updated");
+                }}
+              >
+                絞り込みをリセット
+              </Button>
+            )}
+          </Card>
+        )}
       </div>
 
-      {/* 一覧（マイ案件 と サンプル を分けて表示） */}
+      {/* 絞り込みタブ */}
+      <Tabs
+        tabs={[
+          { key: "all", label: `すべて（${live.length}）` },
+          { key: "favorite", label: `★ お気に入り（${favorites.length}）` },
+          { key: "acquired", label: `買取済・在庫（${acquireds.length}）` },
+          { key: "settled", label: `決済完了（${settleds.length}）` },
+          { key: "archived", label: `アーカイブ（${archiveds.length}）` },
+        ]}
+        active={tab}
+        onChange={(k) => setTab(k as ListTab)}
+      />
+
+      {/* 粗利集計（マイ案件のみ・0件のときは出さない） */}
+      {!loading && myCases.length > 0 && (
+        <div className="mb-4">
+          <SummaryPanel agg={agg} title={summaryTitle} periodLabel={periodLabel} />
+        </div>
+      )}
+
+      {/* 一覧（「すべて」タブのみ マイ案件 と サンプル を分けて表示） */}
       {loading ? (
         <p className="py-10 text-center text-sm text-muted">読み込み中…</p>
       ) : shown.length === 0 ? (
         <Card className="p-8 text-center">
-          <p className="text-sm text-muted">まだ案件がありません。</p>
-          <p className="mt-1 text-xs text-muted">「新規案件」または「サンプル読み込み」から始めましょう。</p>
+          <p className="text-sm text-muted">{emptyTitle(tab, filtersActive)}</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted">{emptyHint(tab, filtersActive)}</p>
         </Card>
+      ) : tab !== "all" ? (
+        // お気に入り・買取済・決済完了・アーカイブは、マイ案件／サンプルを分けずに1リストで表示
+        <div className="space-y-3">
+          {shown.map((p) => (
+            <ProjectCard
+              key={p.id}
+              p={p}
+              sample={isSampleProject(p)}
+              companyName={companyName}
+              onOpen={(id) => router.push(`/project?id=${id}`)}
+              onDuplicate={handleDuplicate}
+              onDelete={setDelTarget}
+              onToggleFavorite={toggleFavorite}
+              onToggleArchive={toggleArchive}
+            />
+          ))}
+        </div>
       ) : (
         <div className="space-y-6">
           <section>
@@ -148,6 +388,8 @@ export default function HomePage() {
                     onOpen={(id) => router.push(`/project?id=${id}`)}
                     onDuplicate={handleDuplicate}
                     onDelete={setDelTarget}
+                    onToggleFavorite={toggleFavorite}
+                    onToggleArchive={toggleArchive}
                   />
                 ))}
               </div>
@@ -170,6 +412,8 @@ export default function HomePage() {
                     onOpen={(id) => router.push(`/project?id=${id}`)}
                     onDuplicate={handleDuplicate}
                     onDelete={setDelTarget}
+                    onToggleFavorite={toggleFavorite}
+                    onToggleArchive={toggleArchive}
                   />
                 ))}
               </div>
@@ -206,90 +450,46 @@ export default function HomePage() {
         }
       >
         「{delTarget?.name}」を削除します。この操作は取り消せません。
+        <br />
+        <span className="text-xs text-muted">
+          後で見返す可能性があるなら、削除ではなく「アーカイブ」をおすすめします。
+        </span>
       </Modal>
     </main>
   );
 }
 
-function ProjectCard({
-  p,
-  sample,
-  companyName,
-  onOpen,
-  onDuplicate,
-  onDelete,
-}: {
-  p: Project;
-  sample?: boolean;
-  companyName: (id: string) => string;
-  onOpen: (id: string) => void;
-  onDuplicate: (p: Project) => void;
-  onDelete: (p: Project) => void;
-}) {
-  const r = calculate(p.calc);
-  const judge = judgeProfit(r);
-  return (
-    <Card className={cn("overflow-hidden", sample && "border-dashed")}>
-      <button
-        onClick={() => onOpen(p.id)}
-        className="block w-full p-4 text-left transition-base hover:bg-surface-2"
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              {sample && (
-                <span className="inline-flex items-center rounded-full bg-accent-500/15 px-2.5 py-1 text-xs font-semibold text-accent-600 dark:text-accent-400">
-                  サンプル
-                </span>
-              )}
-              <Badge tone="brand">{companyName(p.companyId)}</Badge>
-              <Badge tone="neutral">{PROPERTY_TYPE_LABELS[p.propertyType]}</Badge>
-            </div>
-            <h3 className="mt-2 truncate text-base font-bold text-fg">{p.name || "（無題）"}</h3>
-            <p className="mt-0.5 text-[11px] text-muted">更新: {fmtDateTime(p.updatedAt)}</p>
-          </div>
-          <Badge tone={judge}>{judge === "good" ? "良好" : judge === "warn" ? "要検討" : "要注意"}</Badge>
-        </div>
-        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-          <Kpi label="販売価格" value={`${fmtMan(p.calc.sellPrice)}万`} />
-          <Kpi label="営業利益" value={`${fmtMan(r.operatingProfit)}万`} tone={judge} />
-          <Kpi label="営業利益率" value={fmtPct(r.operatingMargin)} tone={judge} />
-        </div>
-      </button>
-      <div className="flex border-t border-border">
-        <button
-          onClick={() => onDuplicate(p)}
-          className="flex-1 py-2.5 text-xs font-medium text-muted transition-base hover:bg-surface-2 hover:text-fg"
-        >
-          {sample ? "複製してマイ案件に" : "複製"}
-        </button>
-        <div className="w-px bg-border" />
-        <button
-          onClick={() => onDelete(p)}
-          className="flex-1 py-2.5 text-xs font-medium text-red-600 transition-base hover:bg-red-500/10"
-        >
-          削除
-        </button>
-      </div>
-    </Card>
-  );
+/** 空表示の見出し（タブ・絞り込み状況に応じた案内） */
+function emptyTitle(tab: ListTab, filtered: boolean): string {
+  if (filtered) return "条件に合う案件がありません。";
+  switch (tab) {
+    case "favorite":
+      return "お気に入りの案件はありません。";
+    case "acquired":
+      return "買取済（在庫）の案件はありません。";
+    case "settled":
+      return "決済完了の案件はありません。";
+    case "archived":
+      return "アーカイブされた案件はありません。";
+    default:
+      return "まだ案件がありません。";
+  }
 }
 
-function Kpi({ label, value, tone }: { label: string; value: string; tone?: "good" | "warn" | "bad" }) {
-  const color =
-    tone === "good"
-      ? "text-emerald-600 dark:text-emerald-400"
-      : tone === "bad"
-      ? "text-red-600 dark:text-red-400"
-      : tone === "warn"
-      ? "text-amber-600 dark:text-amber-400"
-      : "text-fg";
-  return (
-    <div className="rounded-xl bg-surface-2 px-2 py-2">
-      <div className="text-[10px] text-muted">{label}</div>
-      <div className={cn("text-sm font-bold", color)}>{value}</div>
-    </div>
-  );
+function emptyHint(tab: ListTab, filtered: boolean): string {
+  if (filtered) return "検索キーワード・期間・会社の絞り込みを見直してください。";
+  switch (tab) {
+    case "favorite":
+      return "案件カード右上の ☆ を押すと、ここに集まります。";
+    case "acquired":
+      return "買取（仕入）が済んだ案件は、案件を開いて上部のステージを「買取済」にすると在庫として集計されます。";
+    case "settled":
+      return "再販売の決済が済んだら、案件の「実績・確定」タブで決済日と最終経費を入れて「決済完了」にしてください。";
+    case "archived":
+      return "終わった案件はカード下の「アーカイブ」で一覧から隠せます（削除ではないので後から戻せます）。";
+    default:
+      return "「新規案件」または「サンプル読み込み」から始めましょう。";
+  }
 }
 
 function NewProjectModal({

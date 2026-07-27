@@ -35,10 +35,21 @@ function migrateSiteworkToExpenses(calc: Project["calc"]): Project["calc"] {
   return changed ? { ...calc, acquisition, expenses } : calc;
 }
 
+/**
+ * 旧データ移行：「買取完了」タグ（acquired: boolean）を進行ステージ（stage）へ移す。
+ * stage が未設定で acquired===true のものだけ "acquired"（買取済）に読み替える。
+ */
+function migrateStage(p: Project): Project["stage"] {
+  if (p.stage) return p.stage;
+  return p.acquired ? "acquired" : "reviewing";
+}
+
 function normalizeProject(p: Project): Project {
   const migratedCalc = migrateSiteworkToExpenses(p.calc);
   return {
     ...p,
+    stage: migrateStage(p),
+    archived: p.archived ?? false,
     calc: {
       ...migratedCalc,
       acquisitionExtra: migratedCalc.acquisitionExtra ?? [],

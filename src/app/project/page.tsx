@@ -1,19 +1,22 @@
 "use client";
 // ============================================================
 // 案件編集ページ（静的書き出し対応：/project?id=xxx）
-// タブ: 計算書 / 稟議書 / シミュレーション / 事業計画書
+// タブ: 計算書 / 稟議書 / シミュレーション / 事業計画書 / 実績・確定
 // ============================================================
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 import * as db from "@/lib/db";
-import { Tabs, Button, Select, Badge, TextInput } from "@/components/ui";
-import { PROPERTY_TYPE_LABELS } from "@/lib/types";
+import { Tabs, Button, Select, Badge, TextInput, cn } from "@/components/ui";
+import { PROPERTY_TYPE_LABELS, ProjectStage, STAGE_LABELS } from "@/lib/types";
+import { isSampleProject } from "@/lib/sampleData";
+import { stageOf } from "@/lib/summary";
 import { CalcTab } from "@/components/tabs/CalcTab";
 import { RingiTab } from "@/components/tabs/RingiTab";
 import { SimTab } from "@/components/tabs/SimTab";
 import { PlanTab } from "@/components/tabs/PlanTab";
+import { ActualTab } from "@/components/tabs/ActualTab";
 import { PdfExportBar } from "@/components/PdfExportBar";
 
 const TABS = [
@@ -21,6 +24,7 @@ const TABS = [
   { key: "ringi", label: "稟議書" },
   { key: "sim", label: "シミュレーション" },
   { key: "plan", label: "事業計画書" },
+  { key: "actual", label: "実績・確定" },
 ];
 
 function ProjectEditor() {
@@ -93,6 +97,38 @@ function ProjectEditor() {
           />
           <Badge tone="neutral">{PROPERTY_TYPE_LABELS[current.propertyType]}</Badge>
         </div>
+
+        {/* お気に入り・進行ステージ・アーカイブ（一覧のタブ絞り込みに連動） */}
+        <div className="flex flex-wrap items-center gap-2">
+          <TagToggle
+            active={!!current.favorite}
+            onClick={() => update({ favorite: !current.favorite })}
+            activeClass="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+          >
+            {current.favorite ? "★ お気に入り" : "☆ お気に入り"}
+          </TagToggle>
+          {/* サンプル（テンプレート）はステージ・アーカイブの対象外 */}
+          {!isSampleProject(current) && (
+            <>
+              <Select
+                value={stageOf(current)}
+                onChange={(v) => update({ stage: v as ProjectStage })}
+                options={(["reviewing", "acquired", "settled"] as ProjectStage[]).map((s) => ({
+                  value: s,
+                  label: STAGE_LABELS[s],
+                }))}
+                className="w-auto min-w-[120px] flex-none py-1.5 text-xs"
+              />
+              <TagToggle
+                active={!!current.archived}
+                onClick={() => update({ archived: !current.archived })}
+                activeClass="border-border bg-surface-2 text-fg"
+              >
+                {current.archived ? "アーカイブ済み（戻す）" : "アーカイブ"}
+              </TagToggle>
+            </>
+          )}
+        </div>
       </div>
 
       {/* PDF出力（タブ外・上部に常設） */}
@@ -106,6 +142,7 @@ function ProjectEditor() {
       {tab === "ringi" && <RingiTab />}
       {tab === "sim" && <SimTab />}
       {tab === "plan" && <PlanTab />}
+      {tab === "actual" && <ActualTab />}
 
       <div className="mt-6">
         <Button variant="secondary" onClick={() => useStore.getState().saveNow()} className="w-full">
@@ -113,6 +150,33 @@ function ProjectEditor() {
         </Button>
       </div>
     </main>
+  );
+}
+
+/** タグのオン/オフを切り替えるチップ型ボタン（お気に入り・買取完了） */
+function TagToggle({
+  active,
+  activeClass,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  activeClass: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "inline-flex min-h-[36px] items-center rounded-full border px-3 text-xs font-semibold transition-base",
+        active ? activeClass : "border-border bg-surface-2 text-muted hover:text-fg"
+      )}
+    >
+      {children}
+    </button>
   );
 }
 

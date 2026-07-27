@@ -74,6 +74,14 @@ export function today(): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
+/** 日付表記（YYYY-MM-DD → YYYY/MM/DD）。未入力は "—" */
+export function fmtDate(date: string | undefined | null): string {
+  if (!date) return "—";
+  const d = date.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return "—";
+  return d.replace(/-/g, "/");
+}
+
 /** 日時の和暦寄り表記（YYYY/MM/DD HH:mm） */
 export function fmtDateTime(iso: string | undefined): string {
   if (!iso) return "-";

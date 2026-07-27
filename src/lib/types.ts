@@ -184,6 +184,37 @@ export interface PlanDoc {
   edited?: boolean;
 }
 
+/**
+ * 案件の進行ステージ（買取再販のライフサイクル）
+ *  - reviewing: 検討中（稟議前〜稟議中。まだ買っていない）
+ *  - acquired:  買取済（仕入決済が終わり、在庫として保有中）
+ *  - settled:   決済完了（再販売の決済が終わり、損益が確定した）
+ */
+export type ProjectStage = "reviewing" | "acquired" | "settled";
+
+export const STAGE_LABELS: Record<ProjectStage, string> = {
+  reviewing: "検討中",
+  acquired: "買取済",
+  settled: "決済完了",
+};
+
+/**
+ * 実績データ（買取後〜再販売完了時に確定する数値）。
+ * 計画（Project.calc）と同じ構造の CalcInput を持つことで、
+ * 同じ計算ロジック（calculate）で確定粗利・確定営業利益を算出し、
+ * 費目単位で「計画 vs 実績」の差異を比較できる。
+ */
+export interface ActualData {
+  /** 買取（仕入）決済日 YYYY-MM-DD */
+  purchaseDate?: string;
+  /** 再販売の決済日（売却完了日） YYYY-MM-DD */
+  settleDate?: string;
+  /** 実績の計算入力。「計画からコピー」で初期化し、確定額に書き換えていく */
+  calc?: CalcInput;
+  /** 差異メモ（追加工事・値引きの経緯など） */
+  note?: string;
+}
+
 /** 案件（プロジェクト）— IndexedDB保存単位 */
 export interface Project {
   id: string;
@@ -191,6 +222,19 @@ export interface Project {
   name: string; // 案件名
   /** サンプル（テンプレート）かどうか。マイ案件と区別する印 */
   isSample?: boolean;
+  /** お気に入り（星マーク）。一覧の「お気に入り」タブで絞り込む */
+  favorite?: boolean;
+  /** 進行ステージ。未設定は "reviewing"（検討中）として扱う */
+  stage?: ProjectStage;
+  /** アーカイブ済み。通常のタブから隠し、「アーカイブ」タブで復元・完全削除できる */
+  archived?: boolean;
+  /** 実績（最終経費・確定粗利）。決済完了時に記録する */
+  actual?: ActualData;
+  /**
+   * @deprecated 旧「買取完了」タグ。stage へ統合したため、読み込み時に stage="acquired" へ移行する。
+   * 既存データを読めるように型だけ残している（新規書き込みはしない）。
+   */
+  acquired?: boolean;
   propertyType: PropertyType;
   calc: CalcInput;
   ringi: RingiData;
