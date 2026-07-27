@@ -66,7 +66,9 @@ export function PdfExportBar() {
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
             <path d="M14 2v6h6M12 18v-6M9 15l3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <span className="text-xs font-bold">PDF出力</span>
+          <span className="text-xs font-bold" title="別タブでプレビュー表示します（そこから保存・印刷できます）">
+            PDF出力
+          </span>
         </div>
         <div className="flex flex-1 gap-1.5 overflow-x-auto">
           {ITEMS.map((it) => (
@@ -87,7 +89,6 @@ export function PdfExportBar() {
         </div>
       </div>
       {error && <p className="mt-2 px-1 text-[11px] text-red-600 dark:text-red-400">{error}</p>}
-      <p className="mt-1.5 px-1 text-[10px] text-muted">別タブでプレビュー表示します（そこから保存・印刷できます）</p>
     </div>
   );
 }

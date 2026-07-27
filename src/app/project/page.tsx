@@ -19,12 +19,13 @@ import { PlanTab } from "@/components/tabs/PlanTab";
 import { ActualTab } from "@/components/tabs/ActualTab";
 import { PdfExportBar } from "@/components/PdfExportBar";
 
+// タブ名は横1段に収まる長さにしている（横スクロールで気づかれないのを防ぐため）
 const TABS = [
   { key: "calc", label: "計算書" },
   { key: "ringi", label: "稟議書" },
-  { key: "sim", label: "シミュレーション" },
-  { key: "plan", label: "事業計画書" },
-  { key: "actual", label: "実績・確定" },
+  { key: "sim", label: "価格試算" },
+  { key: "plan", label: "計画書" },
+  { key: "actual", label: "実績" },
 ];
 
 function ProjectEditor() {
@@ -72,11 +73,30 @@ function ProjectEditor() {
     <main className="px-4 pt-4">
       {/* トップバー */}
       <div className="mb-3 flex items-center justify-between gap-2">
-        <button onClick={() => router.push("/")} className="text-sm text-brand-600">
-          ← 一覧
+        <button
+          onClick={() => router.push("/")}
+          className="-ml-2 flex min-h-[40px] items-center gap-1 rounded-xl px-2 text-sm font-semibold text-brand-600 transition-base hover:bg-surface-2 dark:text-brand-100"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          案件一覧
         </button>
-        <span className="text-[11px] text-muted">
-          {saving ? "保存中…" : lastSavedAt ? "自動保存済み" : ""}
+        {/* 保存状態（自動保存されていることが分かるように明示） */}
+        <span className="flex items-center gap-1 text-[11px] text-muted">
+          {saving ? (
+            <>
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+              保存中…
+            </>
+          ) : lastSavedAt ? (
+            <>
+              <svg className="h-3.5 w-3.5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              自動保存済み
+            </>
+          ) : null}
         </span>
       </div>
 

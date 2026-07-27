@@ -57,6 +57,8 @@ export default function HomePage() {
   const [newOpen, setNewOpen] = useState(false);
   const [delTarget, setDelTarget] = useState<Project | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
+  // 集計パネルの開閉。既定は閉じて一覧を見やすくし、「決済済」タブでは自動で開く
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   async function reload() {
     const [ps, cs] = await Promise.all([db.getAllProjects(), db.getAllCompanies()]);
@@ -71,6 +73,11 @@ export default function HomePage() {
       await reload();
     })();
   }, []);
+
+  // タブを切り替えたら集計の開閉を切り替える（決済済タブは集計を見るのが主目的なので開く）
+  useEffect(() => {
+    setSummaryOpen(tab === "settled");
+  }, [tab]);
 
   const companyName = (id: string) => companies.find((c) => c.id === id)?.name ?? "（不明）";
 
@@ -240,25 +247,38 @@ export default function HomePage() {
         </Button>
       </div>
 
-      {/* 検索・絞り込み */}
+      {/* 検索・絞り込み（1行にまとめて縦幅を節約） */}
       <div className="mb-3 space-y-2">
-        <TextInput
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="案件名・所在地で検索"
-          aria-label="案件を検索"
-        />
-        <button
-          type="button"
-          onClick={() => setFilterOpen((v) => !v)}
-          className="flex w-full items-center justify-between rounded-xl border border-border bg-surface-2 px-3 py-2 text-xs font-semibold text-muted transition-base hover:text-fg"
-        >
-          <span>
-            絞り込み・並び替え
-            {filtersActive && <span className="ml-2 rounded-full bg-brand-500/15 px-2 py-0.5 text-brand-600 dark:text-brand-100">適用中</span>}
-          </span>
-          <span>{filterOpen ? "▲" : "▼"}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex-1">
+            <TextInput
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="案件名・所在地で検索"
+              aria-label="案件を検索"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setFilterOpen((v) => !v)}
+            aria-expanded={filterOpen}
+            aria-label="絞り込み・並び替え"
+            className={cn(
+              "relative flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-xl border transition-base",
+              filtersActive
+                ? "border-brand-500 bg-brand-500/10 text-brand-600 dark:text-brand-100"
+                : "border-border bg-surface-2 text-muted hover:text-fg"
+            )}
+          >
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M3 6h18M7 12h10M10 18h4" strokeLinecap="round" />
+            </svg>
+            {/* 絞り込み中は点で知らせる */}
+            {filtersActive && (
+              <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-brand-500" />
+            )}
+          </button>
+        </div>
 
         {filterOpen && (
           <Card className="space-y-3 p-3">
@@ -327,18 +347,24 @@ export default function HomePage() {
         tabs={[
           { key: "all", label: `すべて（${live.length}）` },
           { key: "favorite", label: `★ お気に入り（${favorites.length}）` },
-          { key: "acquired", label: `買取済・在庫（${acquireds.length}）` },
-          { key: "settled", label: `決済完了（${settleds.length}）` },
+          { key: "acquired", label: `在庫（${acquireds.length}）` },
+          { key: "settled", label: `決済済（${settleds.length}）` },
           { key: "archived", label: `アーカイブ（${archiveds.length}）` },
         ]}
         active={tab}
         onChange={(k) => setTab(k as ListTab)}
       />
 
-      {/* 粗利集計（マイ案件のみ・0件のときは出さない） */}
+      {/* 粗利集計（マイ案件のみ・0件のときは出さない）。既定は折りたたみ、決済済タブでは開く */}
       {!loading && myCases.length > 0 && (
-        <div className="mb-4">
-          <SummaryPanel agg={agg} title={summaryTitle} periodLabel={periodLabel} />
+        <div className="mb-3">
+          <SummaryPanel
+            agg={agg}
+            title={summaryTitle}
+            periodLabel={periodLabel}
+            open={summaryOpen}
+            onToggle={() => setSummaryOpen((v) => !v)}
+          />
         </div>
       )}
 

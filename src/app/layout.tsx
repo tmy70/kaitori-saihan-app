@@ -13,8 +13,10 @@ export const viewport: Viewport = {
   themeColor: "#1e4d8c",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // ピンチズームを許可する（細かい数字を拡大して確認できるようにするため。
+  // 拡大禁止はアクセシビリティ上の問題になるので maximumScale は指定しない）
+  maximumScale: 5,
+  userScalable: true,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

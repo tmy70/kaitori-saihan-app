@@ -10,13 +10,22 @@ export function cn(...parts: (string | false | null | undefined)[]) {
 }
 
 // ---------------- Card ----------------
-export function Card({ className, children }: { className?: string; children: React.ReactNode }) {
+export function Card({
+  className,
+  style,
+  children,
+}: {
+  className?: string;
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+}) {
   return (
     <div
       className={cn(
         "rounded-2xl border border-border bg-surface shadow-card transition-base",
         className
       )}
+      style={style}
     >
       {children}
     </div>
@@ -298,15 +307,38 @@ export function Tabs({
   active: string;
   onChange: (k: string) => void;
 }) {
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  /**
+   * タブバーの実際の高さを CSS 変数 --tabbar-h に反映する。
+   * タブが折り返して2段になっても、その下に貼り付く要素（計算書のKPI等）が
+   * タブバーに隠れないようにするため。
+   */
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const apply = () => {
+      document.documentElement.style.setProperty("--tabbar-h", `${Math.round(el.offsetHeight)}px`);
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [tabs.length]);
+
   return (
-    <div className="sticky top-0 z-10 -mx-4 mb-4 border-b border-border bg-bg/90 px-4 backdrop-blur">
-      <div className="flex gap-1 overflow-x-auto">
+    <div ref={ref} className="sticky top-0 z-10 -mx-4 mb-4 border-b border-border bg-bg/90 px-4 backdrop-blur">
+      {/*
+        タブは折り返して全部見えるようにする（横スクロールだと画面外のタブに
+        気づけず、機能に到達できないため）。
+      */}
+      <div className="flex flex-wrap gap-x-1">
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => onChange(t.key)}
             className={cn(
-              "whitespace-nowrap border-b-2 px-3 py-3 text-sm font-semibold transition-base",
+              "min-h-[40px] whitespace-nowrap border-b-2 px-2.5 py-2 text-sm font-semibold transition-base",
               active === t.key
                 ? "border-brand-500 text-brand-600 dark:text-brand-100"
                 : "border-transparent text-muted hover:text-fg"
@@ -316,6 +348,55 @@ export function Tabs({
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ---------------- Collapsible（折りたたみ） ----------------
+/**
+ * 折りたたみパネル。
+ * 見出し行はボタンになっており、閉じている間も要点（right）を表示できる。
+ * 画面の縦を節約しつつ、必要なときだけ詳細を開く用途に使う。
+ */
+export function Collapsible({
+  open,
+  onToggle,
+  title,
+  right,
+  children,
+  className,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  title: React.ReactNode;
+  /** 閉じているときも見せたい要点（合計値やバッジなど） */
+  right?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("overflow-hidden rounded-2xl border border-border bg-surface shadow-card", className)}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left transition-base hover:bg-surface-2"
+      >
+        <div className="min-w-0 flex-1">{title}</div>
+        <div className="flex shrink-0 items-center gap-2">
+          {right}
+          <svg
+            className={cn("h-4 w-4 text-muted transition-base", open && "rotate-180")}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+      </button>
+      {open && <div className="border-t border-border">{children}</div>}
     </div>
   );
 }

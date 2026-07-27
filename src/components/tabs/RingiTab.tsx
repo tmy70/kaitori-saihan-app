@@ -3,7 +3,7 @@
 // 稟議書タブ
 // 物件情報・スペック・査定・チェックリスト(27)・スケジュール(9)・試算サマリー
 // ============================================================
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardHeader, Field, TextInput, TextArea, Toggle, Badge, Button, NumberInput, Select, cn } from "@/components/ui";
 import { ChecklistItem, ChecklistStatus, RingiData } from "@/lib/types";
@@ -27,6 +27,8 @@ export function RingiTab() {
   const current = useStore((s) => s.current)!;
   const update = useStore((s) => s.update);
   const r = current.ringi;
+  // チェックリストは項目数が多いので、残っている項目だけに絞れるようにする
+  const [onlyRemaining, setOnlyRemaining] = useState(false);
   const company = useStore((s) => s.companies.find((c) => c.id === current.companyId));
   const result = useMemo(() => calculate(current.calc), [current.calc]);
   const isMansion = current.propertyType === "mansion";
@@ -74,6 +76,10 @@ export function RingiTab() {
   const passLine = r.checklistPassLine ?? defaultPassLine(current.propertyType);
   // クリア数（適合＋是正可能）が合格ライン以上なら「合格」。
   const isPass = clearedCount >= passLine;
+  // 表示するチェック項目（元の並び順の添字を保持したまま絞り込む）
+  const shownChecklist = r.checklist
+    .map((item, idx) => ({ item, idx }))
+    .filter(({ item }) => !onlyRemaining || item.status === "ng");
 
   return (
     <div className="space-y-4">
@@ -195,33 +201,62 @@ export function RingiTab() {
           desc="各項目を 適合／是正可能／不適合 で判定（是正可能は合格に算入）。基準は編集可"
           action={<Badge tone={isPass ? "good" : "bad"}>{isPass ? "合格" : "不合格"}</Badge>}
         />
-        {/* 合格判定サマリー（合格ラインは編集可） */}
-        <div className="flex items-center justify-between gap-3 border-b border-border bg-surface-2 px-4 py-3">
-          <div className="text-sm">
-            <div>
-              <span className="text-muted">クリア数（適合＋是正可能）</span>
-              <span className={cn("ml-2 text-lg font-bold", isPass ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400")}>
-                {clearedCount}
-              </span>
-              <span className="text-muted"> / 合格ライン {passLine}</span>
+        {/* 合格判定サマリー（進捗バー・合格ラインは編集可） */}
+        <div className="border-b border-border bg-surface-2 px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm">
+              <div>
+                <span className="text-muted">クリア数（適合＋是正可能）</span>
+                <span className={cn("ml-2 text-lg font-bold", isPass ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400")}>
+                  {clearedCount}
+                </span>
+                <span className="text-muted"> / 合格ライン {passLine}</span>
+              </div>
+              <div className="mt-0.5 text-[11px] text-muted">
+                内訳：適合 {okCount}・<span className="text-amber-600 dark:text-amber-400">是正可能 {fixableCount}</span>・
+                <span className="text-red-600 dark:text-red-400">不適合 {ngCount}</span>（全{total}項目／基本{core}＋予備）
+              </div>
             </div>
-            <div className="mt-0.5 text-[11px] text-muted">
-              内訳：適合 {okCount}・<span className="text-amber-600 dark:text-amber-400">是正可能 {fixableCount}</span>・
-              <span className="text-red-600 dark:text-red-400">不適合 {ngCount}</span>（全{total}項目／基本{core}＋予備）
+            <div className="w-28 shrink-0">
+              <Field label="合格ライン">
+                <NumberInput
+                  value={passLine}
+                  suffix="以上"
+                  onChangeNumber={(n) => setRingi({ checklistPassLine: n })}
+                />
+              </Field>
             </div>
           </div>
-          <div className="w-28 shrink-0">
-            <Field label="合格ライン">
-              <NumberInput
-                value={passLine}
-                suffix="以上"
-                onChangeNumber={(n) => setRingi({ checklistPassLine: n })}
+          {/* 進捗バー：合格ラインまであと何項目かを視覚化 */}
+          <div className="mt-2">
+            <div className="h-2 overflow-hidden rounded-full bg-border">
+              <div
+                className={cn("h-full rounded-full transition-base", isPass ? "bg-emerald-500" : "bg-amber-500")}
+                style={{ width: `${Math.min(100, passLine > 0 ? (clearedCount / passLine) * 100 : 0)}%` }}
               />
-            </Field>
+            </div>
+            <p className="mt-1 text-[11px] text-muted">
+              {isPass
+                ? `合格ラインを ${clearedCount - passLine} 項目 上回っています`
+                : `合格ラインまで あと ${passLine - clearedCount} 項目`}
+            </p>
+          </div>
+          {/* 表示の絞り込み（残っている項目に集中できるように） */}
+          <div className="mt-2 border-t border-border pt-2">
+            <Toggle
+              checked={onlyRemaining}
+              onChange={setOnlyRemaining}
+              label="未クリア（不適合）の項目だけ表示する"
+            />
           </div>
         </div>
         <div className="divide-y divide-border">
-          {r.checklist.map((item, idx) => (
+          {shownChecklist.length === 0 && (
+            <p className="px-4 py-6 text-center text-xs text-muted">
+              未クリアの項目はありません。すべて 適合／是正可能 になっています。
+            </p>
+          )}
+          {shownChecklist.map(({ item, idx }) => (
             <div key={item.id} className="px-4 py-2.5">
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 w-5 shrink-0 text-xs font-semibold text-muted">{item.id}</span>

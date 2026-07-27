@@ -3,7 +3,7 @@
 // 計算書タブ
 // 費目入力 → 取得原価・経費・売上原価・粗利・販売経費・営業利益をリアルタイム計算
 // ============================================================
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { Card, CardHeader, NumberInput, TextInput, Field, Button, Badge, Select, Toggle, cn } from "@/components/ui";
 import {
@@ -49,6 +49,8 @@ export function CalcTab() {
   const calc = current.calc;
   const result = useMemo(() => calculate(calc), [calc]);
   const judge = judgeProfit(result);
+  // 費目ごとのPDF表示チェックは上級者向けなので既定は隠す（入力欄の視覚ノイズを減らす）
+  const [showPdfControls, setShowPdfControls] = useState(false);
 
   function setCalc(patch: Partial<CalcInput>) {
     update({ calc: { ...calc, ...patch } });
@@ -137,19 +139,23 @@ export function CalcTab() {
 
   return (
     <div className="space-y-4">
-      {/* KPIダッシュボード */}
-      <Card>
-        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-border">
-          <BigKpi label="営業利益" value={`${fmtMan(result.operatingProfit)}`} unit="万円" tone={judge} big />
+      {/*
+        KPIダッシュボード。
+        費目を入力しながら常に利益が見えるよう、画面上部に貼り付く（sticky）。
+        タブバー（sticky top-0・高さ約49px）の下に重ならないよう top を指定する。
+      */}
+      <Card className="sticky z-[9]" style={{ top: "var(--tabbar-h, 49px)" }}>
+        <div className="grid grid-cols-4 gap-px overflow-hidden rounded-2xl bg-border">
+          <BigKpi label="営業利益" value={`${fmtMan(result.operatingProfit)}`} unit="万" tone={judge} big />
           <BigKpi label="営業利益率" value={fmtPct(result.operatingMargin)} tone={judge} big />
-          <BigKpi label="粗利益" value={`${fmtMan(result.grossProfit)}`} unit="万円" tone={judge} />
+          <BigKpi label="粗利益" value={`${fmtMan(result.grossProfit)}`} unit="万" tone={judge} />
           <BigKpi label="粗利率" value={fmtPct(result.grossMargin)} tone={judge} />
         </div>
-        <div className="flex items-center justify-between px-4 py-2.5">
-          <span className="text-xs text-muted">基準: 粗利益250万以上 または 粗利率30%以上</span>
-          <Badge tone={judge}>{judge === "good" ? "基準クリア" : judge === "warn" ? "要検討" : "赤字/未達"}</Badge>
-        </div>
       </Card>
+      <div className="-mt-2 flex items-center justify-between px-1">
+        <span className="text-[11px] text-muted">基準: 粗利益250万以上 または 粗利率30%以上</span>
+        <Badge tone={judge}>{judge === "good" ? "基準クリア" : judge === "warn" ? "要検討" : "赤字/未達"}</Badge>
+      </div>
 
       {/* 物件タイプ・販売価格 */}
       <Card className="p-4">
@@ -311,6 +317,7 @@ export function CalcTab() {
         onRemoveCustom={(k) => removeCustom("acquisition", k)}
         isVisible={(k, v) => isPdfVisible("acquisition", k, v)}
         onToggleVisible={(k, v) => togglePdfVisible("acquisition", k, v)}
+        showPdfControls={showPdfControls}
       />
 
       {/* 経費 */}
@@ -327,6 +334,7 @@ export function CalcTab() {
         onRemoveCustom={(k) => removeCustom("expenses", k)}
         isVisible={(k, v) => isPdfVisible("expenses", k, v)}
         onToggleVisible={(k, v) => togglePdfVisible("expenses", k, v)}
+        showPdfControls={showPdfControls}
       />
 
       {/* 売上原価・粗利の中間サマリー */}
@@ -349,6 +357,7 @@ export function CalcTab() {
         onRemoveCustom={(k) => removeCustom("selling", k)}
         isVisible={(k, v) => isPdfVisible("selling", k, v)}
         onToggleVisible={(k, v) => togglePdfVisible("selling", k, v)}
+        showPdfControls={showPdfControls}
       />
 
       {/* 営業利益サマリー */}
@@ -392,15 +401,20 @@ export function CalcTab() {
       </Card>
 
       {/* PDF出力オプション */}
-      <Card className="p-4">
+      <Card className="space-y-3 p-4">
         <Toggle
           checked={calc.showZeroInPdf ?? false}
           onChange={(v) => setCalc({ showZeroInPdf: v })}
           label="0円・未入力の費目もPDFに表示する"
         />
-        <p className="mt-2 text-[11px] leading-relaxed text-muted">
-          既定では金額の入っていない費目はPDFに印刷されません（1ページに収めるため）。すべての費目を一括で載せたい場合はオンに。
-          個別に印刷可否を変えたいときは、各費目右側の「PDF」チェックで1つずつ切り替えられます（チェック＝印刷する）。
+        <Toggle
+          checked={showPdfControls}
+          onChange={setShowPdfControls}
+          label="費目ごとにPDF掲載を切り替える（各費目に「PDF」チェックを表示）"
+        />
+        <p className="text-[11px] leading-relaxed text-muted">
+          既定では金額の入っていない費目はPDFに印刷されません（1ページに収めるため）。すべての費目を一括で載せたい場合は上をオンに。
+          1費目ずつ調整したいときは下をオンにすると、各費目に「PDF」チェック（チェック＝印刷する）が出ます。
         </p>
       </Card>
     </div>
@@ -420,6 +434,7 @@ function ItemGroup({
   onRemoveCustom,
   isVisible,
   onToggleVisible,
+  showPdfControls,
 }: {
   title: string;
   total: number;
@@ -433,6 +448,8 @@ function ItemGroup({
   onRemoveCustom: (key: string) => void;
   isVisible: (key: string, value: number) => boolean;
   onToggleVisible: (key: string, value: number) => void;
+  /** 費目ごとのPDF表示チェックを出すか（既定は非表示） */
+  showPdfControls?: boolean;
 }) {
   return (
     <Card>
@@ -446,7 +463,9 @@ function ItemGroup({
                 {it.label}
                 {it.note && <span className="ml-1 text-[10px] text-muted">（{it.note}）</span>}
               </span>
-              <PdfCheck visible={isVisible(it.key, values[it.key] ?? 0)} onToggle={() => onToggleVisible(it.key, values[it.key] ?? 0)} />
+              {showPdfControls && (
+                <PdfCheck visible={isVisible(it.key, values[it.key] ?? 0)} onToggle={() => onToggleVisible(it.key, values[it.key] ?? 0)} />
+              )}
             </div>
             <div className="mt-1.5 flex items-center gap-2">
               <div className="flex-1">
@@ -471,7 +490,9 @@ function ItemGroup({
                 onChange={(e) => onCustomLabel(c.key, e.target.value)}
                 className="flex-1 text-sm"
               />
-              <PdfCheck visible={isVisible(c.key, values[c.key] ?? 0)} onToggle={() => onToggleVisible(c.key, values[c.key] ?? 0)} />
+              {showPdfControls && (
+                <PdfCheck visible={isVisible(c.key, values[c.key] ?? 0)} onToggle={() => onToggleVisible(c.key, values[c.key] ?? 0)} />
+              )}
               <button
                 type="button"
                 onClick={() => onRemoveCustom(c.key)}
