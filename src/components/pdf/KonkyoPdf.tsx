@@ -13,6 +13,8 @@ import {
   DocPage,
   DocTitle,
   KeyValueTable,
+  Note,
+  P,
   Text,
   View,
   d,
@@ -51,9 +53,9 @@ export function KonkyoPdf({ project, company }: { project: Project; company?: Co
     <Document title="買取価格 計算根拠">
       <DocPage company={company}>
         <DocTitle>買取価格 計算根拠</DocTitle>
-        <Text style={[d.paragraph, { textAlign: "right" }]}>
+        <P style={{ textAlign: "right" }}>
           作成日　{fmtDateJa(project.docs?.issueDate)}　／　担当　{t(staffOf(project)) || "―"}
-        </Text>
+        </P>
 
         <Text style={d.heading}>案件</Text>
         <KeyValueTable
@@ -111,10 +113,10 @@ export function KonkyoPdf({ project, company }: { project: Project; company?: Co
       {/* 2ページ目：利益ラインごとの買取価格（詰め込まずページを分ける） */}
       <DocPage company={company}>
         <Text style={d.heading}>利益ラインごとの買取価格</Text>
-        <Text style={d.paragraph}>
+        <P>
           再販想定価格 {fmtManAsYen(r.resalePrice)} を前提に、確保する利益ごとの買取価格を逆算した結果です。
           購入時手数料は買取価格に連動するため、収束計算により求めています。
-        </Text>
+        </P>
         <View style={d.table}>
           <View style={d.tr} wrap={false}>
             <Text style={[d.th, { width: "25%" }]}>確保する利益</Text>
@@ -137,21 +139,21 @@ export function KonkyoPdf({ project, company }: { project: Project; company?: Co
         </View>
 
         <Text style={d.heading}>逆算の考え方</Text>
-        <Text style={d.paragraph}>
+        <P>
           買取価格 ＝ 再販想定価格 − 確保する利益 − {workLabel} − 取得時の諸費用 − 経費 − 販売経費
-        </Text>
-        <Text style={d.paragraph}>
+        </P>
+        <P>
           確保する利益は、販売経費まで差し引いた後に残る額（営業利益）です。
           購入時手数料（買取価格×3%＋6万円）は買取価格そのものに連動するため、
           買取価格を仮置きして費用を求め、その費用から買取価格を引き直す計算を
           差が収まるまで繰り返して確定させています（{PROFIT_LINES.length}本とも
           {lines[0]?.result.iterations ?? 0}回程度で収束）。
-        </Text>
+        </P>
 
-        <Text style={d.note}>
+        <Note>
           「概算」と記載した費目は、評価額・見積りが確定するまでの種別ごとの目安額です。
           実額が判明した時点で計算書を更新してください。
-        </Text>
+        </Note>
       </DocPage>
     </Document>
   );

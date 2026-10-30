@@ -12,7 +12,7 @@
     "test:watch": "vitest",
     "postinstall": "node scripts/patchTextkit.mjs",
     "pdf:render": "tsx scripts/renderPdfs.tsx pdf-out",
-    "pdf:check": "npm run pdf:render && python3 scripts/checkPdfs.py pdf-out"
+    "pdf:check": "npm run pdf:render && python3 scripts/checkPdfs.py pdf-out && python3 scripts/checkCustomerDocs.py pdf-out"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.68.0",

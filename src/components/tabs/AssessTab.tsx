@@ -35,6 +35,7 @@ export function AssessTab() {
   const update = useStore((s) => s.update);
   const companies = useStore((s) => s.companies);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const type = current?.propertyType ?? "building";
   const a = current?.assessment;
@@ -74,8 +75,10 @@ export function AssessTab() {
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-[420px_1fr]">
       {/* ===================== 入力 ===================== */}
       <div className="space-y-4">
+        {/* 買取価格を出すのに要る項目だけを最初に見せる。
+            書類にしか使わない項目（面積・築年・発行者）は下の折りたたみへ。 */}
         <Card>
-          <CardHeader title="査定入力" desc="この6〜8項目だけで買取価格が出ます" />
+          <CardHeader title="査定入力" desc="この5項目だけで買取価格が出ます" />
           <div className="space-y-3 p-4">
             <Field label="種別">
               <Select
@@ -93,6 +96,35 @@ export function AssessTab() {
               />
             </Field>
 
+            <Field label="再販想定価格" hint="この価格で売れる想定。ここから買取価格を逆算します">
+              <NumberInput
+                value={a?.resalePrice}
+                onChangeNumber={(n) => set({ resalePrice: n })}
+                className="text-base"
+              />
+            </Field>
+
+            <Field label={workLabel} hint={`種別の目安：${fmtMan(preset.workCost)}万円（上書きできます）`}>
+              <NumberInput value={a?.workCost} onChangeNumber={(n) => set({ workCost: n })} />
+            </Field>
+
+            <Field label="仲介の査定価格（任意）" hint="比較表に使います。空欄なら比較表の仲介欄は空になります">
+              <NumberInput
+                value={a?.brokerAssessPrice}
+                onChangeNumber={(n) => set({ brokerAssessPrice: n || undefined })}
+              />
+            </Field>
+          </div>
+        </Card>
+
+        {/* 書類に載せる項目。買取価格の計算には関わらないので、ふだんは閉じておく */}
+        <Collapsible
+          open={detailsOpen}
+          onToggle={() => setDetailsOpen((v) => !v)}
+          title={<span className="text-sm font-bold text-fg">書類に載せる項目</span>}
+          right={<span className="text-xs text-muted">面積・築年・発行者</span>}
+        >
+          <div className="space-y-3 p-4">
             <div className="grid grid-cols-2 gap-3">
               <Field label="土地面積" hint={landTsubo ? `${fmtMan(landTsubo)}坪` : undefined}>
                 <NumberInput
@@ -118,25 +150,6 @@ export function AssessTab() {
               />
             </Field>
 
-            <Field label="再販想定価格" hint="この価格で売れる想定。ここから買取価格を逆算します">
-              <NumberInput
-                value={a?.resalePrice}
-                onChangeNumber={(n) => set({ resalePrice: n })}
-                className="text-base"
-              />
-            </Field>
-
-            <Field label={workLabel} hint={`種別の目安：${fmtMan(preset.workCost)}万円（上書きできます）`}>
-              <NumberInput value={a?.workCost} onChangeNumber={(n) => set({ workCost: n })} />
-            </Field>
-
-            <Field label="仲介の査定価格（任意）" hint="比較表に使います。空欄なら比較表の仲介欄は空になります">
-              <NumberInput
-                value={a?.brokerAssessPrice}
-                onChangeNumber={(n) => set({ brokerAssessPrice: n || undefined })}
-              />
-            </Field>
-
             <div className="grid grid-cols-2 gap-3">
               <Field label="発行会社">
                 <Select
@@ -154,7 +167,7 @@ export function AssessTab() {
               </Field>
             </div>
           </div>
-        </Card>
+        </Collapsible>
 
         {/* 概算の内訳（ふだんは閉じたまま。必要なときだけ開いて上書きする） */}
         <Collapsible
@@ -251,12 +264,12 @@ export function AssessTab() {
                       !l.result.feasible && "cursor-not-allowed opacity-50"
                     )}
                   >
-                    <div className="text-xs font-semibold text-muted">利益 {l.profit}万円</div>
-                    <div className="mt-1 text-2xl font-bold tabular-nums text-fg">
+                    <div className="text-sm font-semibold text-muted">利益 {l.profit}万円</div>
+                    <div className="mt-1 text-3xl font-bold leading-tight tabular-nums text-fg">
                       {l.result.feasible ? fmtMan(l.displayPrice) : "—"}
-                      <span className="ml-1 text-sm font-semibold text-muted">万円</span>
+                      <span className="ml-1 text-base font-semibold text-muted">万円</span>
                     </div>
-                    <div className="mt-1 text-[11px] text-muted">
+                    <div className="mt-1.5 text-xs text-muted">
                       {l.result.feasible ? `利益率 ${fmtPct(margin, 1)}` : "この利益は確保できません"}
                     </div>
                   </button>

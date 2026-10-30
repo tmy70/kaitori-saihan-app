@@ -14,6 +14,8 @@ import {
   Issuer,
   KeyValueTable,
   NumberedList,
+  Note,
+  P,
   Text,
   View,
   d,
@@ -32,19 +34,19 @@ export function SateiPdf({ project, company }: { project: Project; company?: Com
 
         <DocTitle>買取査定書</DocTitle>
 
-        <Text style={d.paragraph}>
+        <P>
           拝啓　平素は格別のご高配を賜り、厚く御礼申し上げます。
-        </Text>
-        <Text style={d.paragraph}>
+        </P>
+        <P>
           このたびご相談いただきました下記不動産につきまして、査定の結果、
           次のとおり買取価格をご提示申し上げます。ご検討のほどよろしくお願い申し上げます。
-        </Text>
+        </P>
 
         <Text style={d.heading}>買取価格</Text>
         <AmountBox label="買取価格" yen={offerYen(project)} />
-        <Text style={d.paragraph}>
+        <P>
           有効期限　{fmtDateJa(docs.validUntil) || "別途ご相談"}
-        </Text>
+        </P>
 
         <Text style={d.heading}>物件の表示</Text>
         <KeyValueTable rows={propertyRows(project)} />
@@ -55,16 +57,16 @@ export function SateiPdf({ project, company }: { project: Project; company?: Com
         {fee ? (
           <View>
             <Text style={d.heading}>売主様の仲介手数料</Text>
-            <Text style={d.paragraph}>{SELLER_FEE_LABELS[fee]}</Text>
+            <P>{SELLER_FEE_LABELS[fee]}</P>
           </View>
         ) : null}
 
-        <Text style={d.note}>
+        <Note>
           本書は現時点の査定に基づくご提示であり、売買契約の締結を約するものではありません。
           記載の前提条件に変更が生じた場合は、買取価格を見直させていただくことがあります。
-        </Text>
+        </Note>
 
-        <Text style={[d.paragraph, { marginTop: 14, textAlign: "right" }]}>敬具</Text>
+        <P style={{ marginTop: 14, textAlign: "right" }}>敬具</P>
       </DocPage>
     </Document>
   );

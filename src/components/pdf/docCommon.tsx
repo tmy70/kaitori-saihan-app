@@ -8,6 +8,7 @@
 // ============================================================
 import React from "react";
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import type { Style } from "@react-pdf/types";
 import { Company } from "@/lib/types";
 import { fmtDateJa, fmtYen, sanitizePdfText } from "@/lib/format";
 
@@ -126,6 +127,61 @@ export const d = StyleSheet.create({
 
 /** 文字化けする単位記号などを安全な表記へ直す */
 export const t = (v: string | number | undefined | null) => sanitizePdfText(v);
+
+/**
+ * 日本語の文の途中に、ソースコードの改行由来の半角スペースが入るのを防ぐ。
+ *
+ * JSXは
+ *   <Text>
+ *     ……査定の結果、
+ *     次のとおり……
+ *   </Text>
+ * を「……査定の結果、 次のとおり……」という1つの文字列（改行→半角スペース）にする。
+ * そのままPDFにすると文中に不自然な空きができ、そこで改行もされてしまう。
+ * 日本語の文字に挟まれた半角スペースだけを取り除く（数字や英字の前後は残す）。
+ */
+const JA = "\\u3000-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uff00-\\uffef";
+const JA_GAP = new RegExp(`([${JA}]) +(?=[${JA}])`, "g");
+
+export function joinJa(s: string): string {
+  return s.replace(JA_GAP, "$1");
+}
+
+/**
+ * 本文の段落。複数行に分けて書いても、日本語として詰めて1つの文になる。
+ * 単位記号の正規化（㎡→m² など）もここで行う。
+ */
+/** スタイル1件ぶんの型 */
+type DocStyle = Style;
+
+export function P({
+  style,
+  children,
+}: {
+  style?: DocStyle;
+  children: React.ReactNode;
+}) {
+  const fixed = React.Children.toArray(children).map((c, i) =>
+    typeof c === "string" || typeof c === "number" ? (
+      <React.Fragment key={i}>{joinJa(t(c))}</React.Fragment>
+    ) : (
+      <React.Fragment key={i}>{c}</React.Fragment>
+    )
+  );
+  return <Text style={style ? [d.paragraph, style] : d.paragraph}>{fixed}</Text>;
+}
+
+/** 注記（本文より小さめ・補足用）。P と同じく日本語の空きを詰める */
+export function Note({ children }: { children: React.ReactNode }) {
+  const fixed = React.Children.toArray(children).map((c, i) =>
+    typeof c === "string" || typeof c === "number" ? (
+      <React.Fragment key={i}>{joinJa(t(c))}</React.Fragment>
+    ) : (
+      <React.Fragment key={i}>{c}</React.Fragment>
+    )
+  );
+  return <Text style={d.note}>{fixed}</Text>;
+}
 
 /** 発行日（右上） */
 export function IssueDate({ date }: { date?: string }) {

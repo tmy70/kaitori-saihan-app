@@ -14,6 +14,8 @@ import {
   IssueDate,
   Issuer,
   KeyValueTable,
+  Note,
+  P,
   Text,
   View,
   d,
@@ -84,10 +86,10 @@ export function HikakuPdf({ project, company }: { project: Project; company?: Co
 
         <DocTitle>売却方法の比較</DocTitle>
 
-        <Text style={d.paragraph}>
+        <P>
           下記不動産について、仲介によるご売却と、弊社による買取とを比較いたしました。
           ご検討の参考になれば幸いです。
-        </Text>
+        </P>
 
         <Text style={d.heading}>物件の表示</Text>
         <KeyValueTable rows={propertyRows(project)} />
@@ -108,10 +110,10 @@ export function HikakuPdf({ project, company }: { project: Project; company?: Co
           ))}
         </View>
 
-        <Text style={d.note}>
+        <Note>
           仲介手数料は「売買価格×3%＋6万円」（別途消費税）として算出しています。
           記載の金額は現時点の査定に基づく概算であり、実際の成約価格・諸費用により変動します。
-        </Text>
+        </Note>
       </DocPage>
     </Document>
   );

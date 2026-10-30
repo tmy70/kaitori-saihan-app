@@ -11,6 +11,8 @@ import {
   DocPage,
   DocTitle,
   KeyValueTable,
+  Note,
+  P,
   Text,
   View,
   d,
@@ -34,22 +36,22 @@ export function BankPdf({ project, company }: { project: Project; company?: Comp
       {/* ---- 1ページ目：表紙相当・事業概要・物件概要 ---- */}
       <DocPage company={company}>
         <DocTitle>事業計画書</DocTitle>
-        <Text style={[d.paragraph, { textAlign: "center" }]}>
+        <P style={{ textAlign: "center" }}>
           {t(company?.name)}
-        </Text>
-        <Text style={[d.paragraph, { textAlign: "right" }]}>
+        </P>
+        <P style={{ textAlign: "right" }}>
           作成日　{fmtDateJa(project.docs?.issueDate)}
-        </Text>
+        </P>
 
         <Text style={d.heading}>事業概要</Text>
         {project.bankPlan?.body ? (
           <NarrativeBody text={project.bankPlan.body} />
         ) : (
-          <Text style={d.paragraph}>
+          <P>
             {t(PROPERTY_TYPE_LABELS[project.propertyType])}として
             {a?.address ? `${t(a.address)}に所在する物件` : "本物件"}
             を取得し、改修のうえ再販売する事業です。
-          </Text>
+          </P>
         )}
 
         <Text style={d.heading}>対象不動産の概要</Text>
@@ -148,13 +150,13 @@ export function BankPdf({ project, company }: { project: Project; company?: Comp
             ))}
           </View>
         ) : (
-          <Text style={d.paragraph}>（未入力）</Text>
+          <P>（未入力）</P>
         )}
 
-        <Text style={d.note}>
+        <Note>
           本計画書の金額は、取得時点の見積り・査定に基づく計画値です。
           実際の工事費・諸費用の確定により変動する場合があります。
-        </Text>
+        </Note>
       </DocPage>
     </Document>
   );
@@ -201,7 +203,7 @@ function YenTable({
   const rows = items.filter((it) => Number.isFinite(values[it.key]) && values[it.key] !== 0);
   return (
     <View style={{ marginBottom: 12 }}>
-      <Text style={[d.paragraph, { fontWeight: "bold", marginBottom: 4 }]}>{t(label)}</Text>
+      <P style={{ fontWeight: "bold", marginBottom: 4 }}>{t(label)}</P>
       <View style={d.table}>
         {rows.length === 0 ? (
           <View style={d.tr} wrap={false}>

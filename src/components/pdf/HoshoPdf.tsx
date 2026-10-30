@@ -14,6 +14,8 @@ import {
   Issuer,
   KeyValueTable,
   NumberedList,
+  Note,
+  P,
   Text,
   d,
 } from "./docCommon";
@@ -31,11 +33,11 @@ export function HoshoPdf({ project, company }: { project: Project; company?: Com
 
         <DocTitle>買取保証書</DocTitle>
 
-        <Text style={d.paragraph}>
+        <P>
           弊社は、下記不動産につきまして、売主様との媒介契約に基づく販売活動を行い、
           {until ? until : "下記の保証期限"}までに売買契約の締結に至らなかった場合、
           下記の価格をもって弊社が買い取ることを保証いたします。
-        </Text>
+        </P>
 
         <Text style={d.heading}>保証価格</Text>
         <AmountBox label="買取保証価格" yen={guaranteeYen(project)} />
@@ -58,10 +60,10 @@ export function HoshoPdf({ project, company }: { project: Project; company?: Com
         <Text style={d.heading}>保証の条件</Text>
         <NumberedList items={guaranteeConditionsOf(project)} />
 
-        <Text style={d.note}>
+        <Note>
           本書に定める保証は、上記の条件を満たす場合に効力を有します。
           保証期限までに売買契約が成立した場合、本書による保証は終了いたします。
-        </Text>
+        </Note>
       </DocPage>
     </Document>
   );
