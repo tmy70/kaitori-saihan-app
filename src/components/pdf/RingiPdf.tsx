@@ -2,7 +2,8 @@
 import React from "react";
 import { Document, View, Text, BasePage, styles, COLORS, ApprovalRow } from "./common";
 import { Company, Project, PROPERTY_TYPE_LABELS } from "@/lib/types";
-import { calculate, tsuboUnitPrice, usesTsuboPrice, consolidatedProfit, receivedBrokerage, sumLotsArea, sumLotsTsubo } from "@/lib/calc";
+import { calculate, judgeProfit, tsuboUnitPrice, usesTsuboPrice, consolidatedProfit, receivedBrokerage, sumLotsArea, sumLotsTsubo } from "@/lib/calc";
+import { priceLines } from "@/lib/assessment";
 import { countCleared, countStatus, defaultPassLine, ngLabels, fixableLabels } from "@/lib/checklist";
 import { fmtMan, fmtPct, areaLabel, sanitizePdfText } from "@/lib/format";
 
@@ -105,7 +106,7 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
             marginBottom: 4,
           }}
         >
-          <Text style={{ fontSize: 9 }}>
+          <Text style={{ fontSize: 11 }}>
             クリア {cleared} / 合格ライン {passLine}　（適合{okCount}・是正可能{fixableCount}・不適合{ngCount}）
           </Text>
           <Text style={{ fontSize: 11, fontWeight: "bold", color: isPass ? COLORS.brand : "#dc2626" }}>
@@ -125,16 +126,16 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
               marginBottom: 6,
             }}
           >
-            <Text style={{ fontSize: 9, fontWeight: "bold", color: "#dc2626", marginBottom: 2 }}>
+            <Text style={{ fontSize: 11, fontWeight: "bold", color: "#dc2626", marginBottom: 2 }}>
               要確認事項（決裁前にご確認ください）
             </Text>
             {ngs.length > 0 && (
-              <Text style={{ fontSize: 8, fontWeight: "bold", color: "#dc2626", marginBottom: 1 }}>
+              <Text style={{ fontSize: 11, fontWeight: "bold", color: "#dc2626", marginBottom: 1 }}>
                 ■不適合（{ngs.length}件）：{ngs.join("／")}
               </Text>
             )}
             {fixables.length > 0 && (
-              <Text style={{ fontSize: 8, color: "#b45309" }}>
+              <Text style={{ fontSize: 11, color: "#b45309" }}>
                 ■是正可能（{fixables.length}件）：{fixables.join("／")}
               </Text>
             )}
@@ -151,7 +152,7 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
                   <Text
                     style={{
                       width: 24,
-                      fontSize: 8.5,
+                      fontSize: 11,
                       color: markColor(item.status),
                       fontWeight: "bold",
                     }}
@@ -162,7 +163,7 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
                     {/* 不適合（NG）は太字＋赤で強調 */}
                     <Text
                       style={{
-                        fontSize: 9,
+                        fontSize: 11,
                         fontWeight: isNg ? "bold" : "normal",
                         color: isNg ? "#dc2626" : COLORS.text,
                       }}
@@ -170,7 +171,7 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
                       {item.id}.{item.label}
                     </Text>
                     {item.criteria ? (
-                      <Text style={{ fontSize: 7, color: COLORS.muted }}>基準: {sanitizePdfText(item.criteria)}</Text>
+                      <Text style={{ fontSize: 11, color: COLORS.muted }}>基準: {sanitizePdfText(item.criteria)}</Text>
                     ) : null}
                   </View>
                 </View>
@@ -186,8 +187,8 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
               key={s.key}
               style={{ width: "50%", flexDirection: "row", alignItems: "flex-start", paddingVertical: 2, paddingRight: 14 }}
             >
-              <Text style={{ fontSize: 8.5, flex: 1, paddingRight: 6 }}>{sanitizePdfText(s.label)}</Text>
-              <Text style={{ fontSize: 8.5, fontWeight: "bold", width: 58, textAlign: "right" }}>{s.date || "—"}</Text>
+              <Text style={{ fontSize: 11, flex: 1, paddingRight: 6 }}>{sanitizePdfText(s.label)}</Text>
+              <Text style={{ fontSize: 11, fontWeight: "bold", width: 58, textAlign: "right" }}>{s.date || "—"}</Text>
             </View>
           ))}
         </View>
@@ -251,6 +252,106 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
         <Text style={styles.sectionTitle}>承認欄</Text>
         <ApprovalRow staff={r.approverStaff} manager={r.approverManager} president={r.approverPresident} />
       </BasePage>
+
+      {/* 社内用の事業計画は、この1ページ要約に統合している（別文書は作らない） */}
+      <PlanSummaryPage project={project} company={company} />
     </Document>
+  );
+}
+
+/**
+ * 社内用 事業計画の1ページ要約（稟議の後ろに付ける）。
+ * 「いくらで買って、いくらで売り、いくら残るのか」「その価格の根拠は何か」
+ * 「懸念は何か」を1枚で確認できるようにする。
+ */
+function PlanSummaryPage({ project, company }: { project: Project; company?: Company }) {
+  const res = calculate(project.calc);
+  const a = project.assessment;
+  const lines = priceLines(project.propertyType, a);
+  const ngs = ngLabels(project.ringi.checklist);
+  const fixables = fixableLabels(project.ringi.checklist);
+  const judge = judgeProfit(res);
+  const judgeText =
+    judge === "good"
+      ? "利益基準（粗利益250万円以上 または 粗利率30%以上）を満たしています。"
+      : judge === "bad"
+      ? "営業利益がマイナスです。価格・原価の見直しが必要です。"
+      : "利益基準には届いていません。価格・原価の精査が必要です。";
+
+  return (
+    <BasePage company={company}>
+      <Text style={styles.docTitle}>事業計画 要約（社内用）</Text>
+
+      <Text style={styles.sectionTitle}>案件</Text>
+      <KV label="案件名" value={project.name} />
+      <KV label="種別" value={PROPERTY_TYPE_LABELS[project.propertyType]} />
+      <KV label="所在地" value={a?.address || project.ringi.address} />
+      <KV label="面積" value={areaLabel(a?.landAreaSqm) || areaLabel(project.calc.areaSqm, project.calc.tsubo)} />
+
+      <Text style={styles.sectionTitle}>収支の見通し</Text>
+      <View style={styles.row}>
+        <Text style={styles.cellLabel}>買取価格（仕入）</Text>
+        <Text style={styles.cellValue}>{fmtMan(project.calc.acquisition.purchase ?? 0)} 万円</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.cellLabel}>再販想定価格</Text>
+        <Text style={styles.cellValue}>{fmtMan(project.calc.sellPrice)} 万円</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.cellLabel}>売上原価</Text>
+        <Text style={styles.cellValue}>{fmtMan(res.costOfSales)} 万円</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.cellLabel}>粗利益（粗利率）</Text>
+        <Text style={styles.cellValue}>
+          {fmtMan(res.grossProfit)} 万円（{fmtPct(res.grossMargin)}）
+        </Text>
+      </View>
+      <View style={[styles.row, { backgroundColor: COLORS.light }]}>
+        <Text style={[styles.cellLabel, { fontWeight: "bold", color: COLORS.text }]}>営業利益（手残り）</Text>
+        <Text style={[styles.cellValue, { color: COLORS.brand }]}>
+          {fmtMan(res.operatingProfit)} 万円（{fmtPct(res.operatingMargin)}）
+        </Text>
+      </View>
+      <Text style={[styles.paragraph, { marginTop: 6 }]}>{judgeText}</Text>
+
+      <Text style={styles.sectionTitle}>買取価格の根拠（利益ラインごとの逆算）</Text>
+      <View style={styles.table}>
+        <View style={{ flexDirection: "row" }}>
+          <Text style={[styles.th, { width: "34%" }]}>確保する利益</Text>
+          <Text style={[styles.th, { width: "33%", textAlign: "right" }]}>買取価格</Text>
+          <Text style={[styles.th, { width: "33%", textAlign: "right" }]}>利益率</Text>
+        </View>
+        {lines.map((l) => (
+          <View key={l.profit} style={{ flexDirection: "row" }}>
+            <Text style={[styles.td, { width: "34%" }]}>{fmtMan(l.profit)} 万円</Text>
+            <Text style={[styles.td, { width: "33%", textAlign: "right" }]}>
+              {l.result.feasible ? `${fmtMan(l.displayPrice)} 万円` : "—"}
+            </Text>
+            <Text style={[styles.td, { width: "33%", textAlign: "right" }]}>
+              {(a?.resalePrice ?? 0) > 0 ? fmtPct(l.profit / (a?.resalePrice ?? 1)) : "—"}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      <Text style={styles.sectionTitle}>懸念点と対応</Text>
+      {ngs.length === 0 && fixables.length === 0 ? (
+        <Text style={styles.paragraph}>チェックリスト上の懸念点はありません。</Text>
+      ) : (
+        <View>
+          {ngs.map((n, i) => (
+            <Text key={`ng-${i}`} style={styles.paragraph}>
+              ・［不適合］{sanitizePdfText(n)}
+            </Text>
+          ))}
+          {fixables.map((n, i) => (
+            <Text key={`fx-${i}`} style={styles.paragraph}>
+              ・［是正可能］{sanitizePdfText(n)}
+            </Text>
+          ))}
+        </View>
+      )}
+    </BasePage>
   );
 }

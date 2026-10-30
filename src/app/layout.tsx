@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ThemeInit } from "@/components/ThemeInit";
-import { BottomNav } from "@/components/BottomNav";
+import { TopNav } from "@/components/TopNav";
 
 export const metadata: Metadata = {
   title: "買取再販 計算・稟議アプリ",
@@ -31,8 +31,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen font-sans antialiased">
         <ThemeInit />
-        <div className="mx-auto w-full max-w-3xl pb-24">{children}</div>
-        <BottomNav />
+        <TopNav />
+        {/* パソコン利用前提。1280px前後で情報が横に並ぶ幅を確保する */}
+        <div className="mx-auto w-full max-w-[1280px] px-6 pb-20">{children}</div>
       </body>
     </html>
   );

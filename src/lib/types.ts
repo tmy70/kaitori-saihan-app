@@ -177,6 +177,69 @@ export interface SimScenario {
   costDelta: number; // 主要原価（仕入＋リフォーム等）の増減（万円）
 }
 
+// ---------------- 銀行提出用（買取決定後のみ入力する） ----------------
+
+/** 事業スケジュールの1行（契約・決済・工事・販売・返済） */
+export interface BankScheduleRow {
+  key: string;
+  label: string;
+  /** 時期（YYYY-MM-DD または「2026年6月頃」などの自由記述） */
+  when: string;
+}
+
+/** 銀行提出用の既定スケジュール行 */
+export const BANK_SCHEDULE_ROWS: { key: string; label: string }[] = [
+  { key: "contract", label: "売買契約" },
+  { key: "settlement", label: "決済・引渡し（取得）" },
+  { key: "construction", label: "工事着工〜完了" },
+  { key: "sales", label: "販売開始" },
+  { key: "saleSettlement", label: "売却決済" },
+  { key: "repayment", label: "借入金の返済" },
+];
+
+/**
+ * 銀行が求める項目に絞った入力。細かい入力はここだけに集約する。
+ * 金額は万円（PDF出力時に円へ換算する）。
+ */
+export interface BankData {
+  // 対象不動産の概要
+  /** 地番 */
+  lotNumber?: string;
+  /** 地目 */
+  landCategory?: string;
+  /** 構造・階数 */
+  structure?: string;
+  /** 用途地域 */
+  useDistrict?: string;
+  /** 建蔽率（%） */
+  buildingCoverage?: string;
+  /** 容積率（%） */
+  floorAreaRatio?: string;
+  /** 接道状況 */
+  roadAccess?: string;
+  /** 用途（居住用・事業用など） */
+  usage?: string;
+
+  // 販売計画
+  /** 販売時期 */
+  saleTiming?: string;
+  /** 販売方法・販売経路の補足 */
+  saleMethod?: string;
+
+  // 資金計画
+  /** 借入希望額（万円） */
+  loanAmount?: number;
+  /** 自己資金（万円） */
+  ownFunds?: number;
+  /** 返済原資 */
+  repaymentSource?: string;
+  /** 返済時期 */
+  repaymentTiming?: string;
+
+  /** 事業スケジュール */
+  schedule?: BankScheduleRow[];
+}
+
 /** 事業計画書（生成結果） */
 export interface PlanDoc {
   body: string; // AI生成 or 手動編集された本文（Markdown/プレーン）
@@ -186,17 +249,139 @@ export interface PlanDoc {
 
 /**
  * 案件の進行ステージ（買取再販のライフサイクル）
- *  - reviewing: 検討中（稟議前〜稟議中。まだ買っていない）
- *  - acquired:  買取済（仕入決済が終わり、在庫として保有中）
+ *  - assessing: 査定中（価格を出している最中。まだお客様に提示していない）
+ *  - offered:   提示中（買取査定書をお渡しし、返事待ち）
+ *  - decided:   買取決定（買うと決めた。稟議・銀行用の入力が始まる）
+ *  - acquired:  在庫（買取済。仕入決済が終わり、保有中）
  *  - settled:   決済完了（再販売の決済が終わり、損益が確定した）
+ *
+ * ※ 旧ステージ "reviewing"（検討中）は "assessing" に読み替える（stageOf 参照）。
  */
-export type ProjectStage = "reviewing" | "acquired" | "settled";
+export type ProjectStage = "assessing" | "offered" | "decided" | "acquired" | "settled";
+
+/** 表示順（一覧タブ・ステージ選択の並び） */
+export const STAGE_ORDER: ProjectStage[] = [
+  "assessing",
+  "offered",
+  "decided",
+  "acquired",
+  "settled",
+];
 
 export const STAGE_LABELS: Record<ProjectStage, string> = {
-  reviewing: "検討中",
-  acquired: "買取済",
+  assessing: "査定中",
+  offered: "提示中",
+  decided: "買取決定",
+  acquired: "在庫（買取済）",
   settled: "決済完了",
 };
+
+/** 一覧タブなど幅の限られた場所で使う短い表記 */
+export const STAGE_SHORT_LABELS: Record<ProjectStage, string> = {
+  assessing: "査定中",
+  offered: "提示中",
+  decided: "買取決定",
+  acquired: "在庫",
+  settled: "決済済",
+};
+
+/** 買取決定以降か（稟議・銀行用の入力画面を出す段階） */
+export function isDecidedOrLater(stage: ProjectStage): boolean {
+  return stage === "decided" || stage === "acquired" || stage === "settled";
+}
+
+// ---------------- 査定（査定中・提示中に使う入力） ----------------
+
+/**
+ * 査定入力。査定の場で手早く埋められるよう項目を絞っている。
+ * ここから買取価格を逆算し（calc.ts の reverseBuyPrice）、お客様向け書類に流し込む。
+ * 金額はすべて万円。
+ */
+export interface AssessmentInput {
+  /** 再販想定価格（万円） */
+  resalePrice: number;
+  /** 工事費（リフォーム／解体／建築／造成）の概算（万円）。種別ごとの目安が初期値 */
+  workCost: number;
+  /** 仲介で売った場合の査定価格（万円）。比較表に使う。任意 */
+  brokerAssessPrice?: number;
+  /** 所在地 */
+  address?: string;
+  /** 土地面積（m2） */
+  landAreaSqm?: number;
+  /** 建物面積（m2） */
+  buildingAreaSqm?: number;
+  /** 築年（例: 1998年 / 築25年。自由記述） */
+  buildingAge?: string;
+  /** 担当者名 */
+  staff?: string;
+  /** 概算の上書き（未設定なら種別ごとの目安額を使う） */
+  registration?: number;
+  taxProration?: number;
+  acquisitionTax?: number;
+  otherAcquisition?: number;
+  expenses?: number;
+  sellingOther?: number;
+  /** 購入時手数料（買取価格×3%＋6万円）を見込むか。既定 true */
+  includeBuyFee?: boolean;
+  /**
+   * 購入時手数料の上書き（万円）。
+   * 設定すると買取価格に連動せず、この固定額で見込む（値引き・満額でない場合など）。
+   * 既存案件の読み込み時、計算書の額が計算式と違う場合はここに保持して数字を変えない。
+   */
+  buyFee?: number;
+  /** 販売時仲介手数料を見込まない（自社グループで販売する）場合 true */
+  noSellBrokerage?: boolean;
+  /**
+   * 販売時仲介手数料の上書き（万円）。
+   * 未設定なら再販想定価格から自動計算（×3%＋6万円）する。
+   * 既存案件を読み込んだ際、計算書に入っていた額が自動計算と違う場合はここに保持して
+   * 表示上の数字が変わらないようにする。
+   */
+  sellBrokerage?: number;
+  /** 提示する買取価格（万円）。利益ラインを選ぶと入り、手入力で上書きもできる */
+  offerPrice?: number;
+  /** 選んだ利益ライン（万円）。手入力で価格を変えた場合は undefined */
+  selectedProfitLine?: number;
+}
+
+// ---------------- お客様向け書類の設定 ----------------
+
+/**
+ * 売主様側の仲介手数料の有無。
+ * 発行会社と取引形態で変わるため案件ごとに選ぶ。未選択（""）のあいだは買取査定書を出さない。
+ */
+export type SellerFeeChoice = "" | "none" | "charged";
+
+export const SELLER_FEE_LABELS: Record<Exclude<SellerFeeChoice, "">, string> = {
+  none: "不要（弊社が直接買い取るため、売主様に仲介手数料はかかりません）",
+  charged: "必要（別途、媒介契約に基づく仲介手数料を申し受けます）",
+};
+
+/** お客様向け書類（買取査定書・買取保証書・比較表）の記載内容 */
+export interface DocSettings {
+  /** 宛名（売主様氏名）。「様」は書類側で付ける */
+  sellerName?: string;
+  /** 発行日 YYYY-MM-DD */
+  issueDate?: string;
+  /** 買取査定書の有効期限 YYYY-MM-DD（既定：発行日＋30日） */
+  validUntil?: string;
+  /** 前提条件（1行＝1項目）。既定文を入れ、案件ごとに編集できる */
+  conditions?: string[];
+  /** 売主様側の仲介手数料の有無 */
+  sellerFee?: SellerFeeChoice;
+
+  /** 買取保証書：保証価格（万円）。未入力なら提示価格を使う */
+  guaranteePrice?: number;
+  /** 買取保証書：媒介契約日 YYYY-MM-DD */
+  mediationDate?: string;
+  /** 買取保証書：保証期限 YYYY-MM-DD（既定：媒介契約日＋3か月） */
+  guaranteeUntil?: string;
+  /** 買取保証書：保証の条件（1行＝1項目） */
+  guaranteeConditions?: string[];
+
+  /** 比較表：仲介で売る場合の期間の目安（自由記述。空欄なら「状況により異なります」と表示） */
+  brokerageMonths?: string;
+}
 
 /**
  * 実績データ（買取後〜再販売完了時に確定する数値）。
@@ -224,8 +409,14 @@ export interface Project {
   isSample?: boolean;
   /** お気に入り（星マーク）。一覧の「お気に入り」タブで絞り込む */
   favorite?: boolean;
-  /** 進行ステージ。未設定は "reviewing"（検討中）として扱う */
+  /** 進行ステージ。未設定は "assessing"（査定中）として扱う */
   stage?: ProjectStage;
+  /** 査定入力（査定中・提示中の主画面）。旧データは calc から導出して補う */
+  assessment?: AssessmentInput;
+  /** お客様向け書類の記載内容 */
+  docs?: DocSettings;
+  /** 銀行提出用の入力（買取決定後に埋める） */
+  bank?: BankData;
   /** アーカイブ済み。通常のタブから隠し、「アーカイブ」タブで復元・完全削除できる */
   archived?: boolean;
   /** 実績（最終経費・確定粗利）。決済完了時に記録する */

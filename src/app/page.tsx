@@ -10,11 +10,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Modal, Select, TextInput, Field, Tabs, cn } from "@/components/ui";
-import { toggleTheme } from "@/components/ThemeInit";
 import { ProjectCard } from "@/components/ProjectCard";
 import { SummaryPanel } from "@/components/SummaryPanel";
 import * as db from "@/lib/db";
-import { Company, Project, PropertyType, PROPERTY_TYPE_LABELS } from "@/lib/types";
+import {
+  Company,
+  Project,
+  ProjectStage,
+  PropertyType,
+  PROPERTY_TYPE_LABELS,
+  STAGE_SHORT_LABELS,
+  STAGE_ORDER,
+} from "@/lib/types";
 import { genId, today } from "@/lib/format";
 import {
   aggregate,
@@ -30,8 +37,8 @@ import {
 import { createSampleProject, createEmptyProject, isSampleProject } from "@/lib/sampleData";
 import { DEFAULT_COMPANY_ID } from "@/lib/companies";
 
-/** 一覧の表示タブ */
-type ListTab = "all" | "favorite" | "acquired" | "settled" | "archived";
+/** 一覧の表示タブ。ステージ別タブに、すべて・お気に入り・アーカイブを加えたもの */
+type ListTab = "all" | "favorite" | ProjectStage | "archived";
 
 /** 並び替え */
 type SortKey = "updated" | "date" | "profit" | "name";
@@ -105,26 +112,27 @@ export default function HomePage() {
   // タブごとの母集合（アーカイブは通常タブから除外）
   const live = useMemo(() => base.filter((p) => !isArchived(p)), [base]);
   const favorites = useMemo(() => live.filter((p) => !!p.favorite), [live]);
-  const acquireds = useMemo(
-    () => live.filter((p) => !isSampleProject(p) && stageOf(p) === "acquired"),
-    [live]
-  );
-  const settleds = useMemo(
-    () => live.filter((p) => !isSampleProject(p) && stageOf(p) === "settled"),
-    [live]
-  );
   const archiveds = useMemo(() => base.filter((p) => isArchived(p)), [base]);
+
+  /** ステージごとの件数（サンプルはステージの対象外なので除く） */
+  const byStage = useMemo(() => {
+    const map = {} as Record<ProjectStage, Project[]>;
+    for (const s of STAGE_ORDER) map[s] = [];
+    for (const p of live) {
+      if (isSampleProject(p)) continue;
+      map[stageOf(p)].push(p);
+    }
+    return map;
+  }, [live]);
 
   const shownRaw =
     tab === "favorite"
       ? favorites
-      : tab === "acquired"
-      ? acquireds
-      : tab === "settled"
-      ? settleds
       : tab === "archived"
       ? archiveds
-      : live;
+      : tab === "all"
+      ? live
+      : byStage[tab];
 
   // 並び替え
   const shown = useMemo(() => {
@@ -157,7 +165,9 @@ export default function HomePage() {
       ? "アーカイブの集計"
       : tab === "favorite"
       ? "お気に入りの集計"
-      : "全案件の集計";
+      : tab === "all"
+      ? "全案件の集計"
+      : `${STAGE_SHORT_LABELS[tab]}の見込み粗利`;
 
   // ---------------- 操作 ----------------
   async function handleDuplicate(p: Project) {
@@ -169,9 +179,9 @@ export default function HomePage() {
       id: genId(),
       name: baseName + "（複製）",
       isSample: false,
-      // 複製は「これから検討する別案件」なので、印・ステージ・実績は引き継がない
+      // 複製は「これから査定する別案件」なので、印・ステージ・実績は引き継がない
       favorite: false,
-      stage: "reviewing",
+      stage: "assessing",
       archived: false,
       acquired: false,
       actual: undefined,
@@ -221,22 +231,11 @@ export default function HomePage() {
   const filtersActive = companyFilter !== "all" || period !== "all" || !!query.trim() || sort !== "updated";
 
   return (
-    <main className="px-4 pt-5">
+    <main className="pt-5">
       {/* ヘッダー */}
-      <header className="mb-5 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-fg">マイ案件</h1>
-          <p className="text-xs text-muted">買取再販 計算・稟議・事業計画</p>
-        </div>
-        <button
-          onClick={() => toggleTheme()}
-          aria-label="テーマ切替"
-          className="rounded-xl border border-border bg-surface p-2.5 text-muted transition-base hover:text-fg"
-        >
-          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
+      <header className="mb-5">
+        <h1 className="text-xl font-bold text-fg">案件一覧</h1>
+        <p className="text-xs text-muted">査定から決済まで、進行状況ごとに整理されています</p>
       </header>
 
       {/* アクション */}
@@ -346,9 +345,11 @@ export default function HomePage() {
       <Tabs
         tabs={[
           { key: "all", label: `すべて（${live.length}）` },
+          ...STAGE_ORDER.map((s) => ({
+            key: s,
+            label: `${STAGE_SHORT_LABELS[s]}（${byStage[s].length}）`,
+          })),
           { key: "favorite", label: `★ お気に入り（${favorites.length}）` },
-          { key: "acquired", label: `在庫（${acquireds.length}）` },
-          { key: "settled", label: `決済済（${settleds.length}）` },
           { key: "archived", label: `アーカイブ（${archiveds.length}）` },
         ]}
         active={tab}
@@ -491,14 +492,12 @@ function emptyTitle(tab: ListTab, filtered: boolean): string {
   switch (tab) {
     case "favorite":
       return "お気に入りの案件はありません。";
-    case "acquired":
-      return "買取済（在庫）の案件はありません。";
-    case "settled":
-      return "決済完了の案件はありません。";
     case "archived":
       return "アーカイブされた案件はありません。";
-    default:
+    case "all":
       return "まだ案件がありません。";
+    default:
+      return `${STAGE_SHORT_LABELS[tab]}の案件はありません。`;
   }
 }
 
@@ -507,12 +506,18 @@ function emptyHint(tab: ListTab, filtered: boolean): string {
   switch (tab) {
     case "favorite":
       return "案件カード右上の ☆ を押すと、ここに集まります。";
-    case "acquired":
-      return "買取（仕入）が済んだ案件は、案件を開いて上部のステージを「買取済」にすると在庫として集計されます。";
-    case "settled":
-      return "再販売の決済が済んだら、案件の「実績・確定」タブで決済日と最終経費を入れて「決済完了」にしてください。";
     case "archived":
       return "終わった案件はカード下の「アーカイブ」で一覧から隠せます（削除ではないので後から戻せます）。";
+    case "assessing":
+      return "「＋ 新規案件」で作ると、まず査定中として並びます。";
+    case "offered":
+      return "買取査定書をお渡ししたら、案件を開いて進行状況を「提示中」にしてください。";
+    case "decided":
+      return "買うと決めたら進行状況を「買取決定」にしてください。稟議・銀行用の画面が出てきます。";
+    case "acquired":
+      return "仕入の決済が済んだら進行状況を「在庫（買取済）」にすると、在庫として集計されます。";
+    case "settled":
+      return "再販売の決済が済んだら、「実績」タブで決済日と最終経費を入れて「決済完了」にしてください。";
     default:
       return "「新規案件」または「サンプル読み込み」から始めましょう。";
   }

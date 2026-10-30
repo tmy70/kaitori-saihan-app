@@ -9,7 +9,10 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "postinstall": "node scripts/patchTextkit.mjs",
+    "pdf:render": "tsx scripts/renderPdfs.tsx pdf-out",
+    "pdf:check": "npm run pdf:render && python3 scripts/checkPdfs.py pdf-out"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.68.0",
@@ -28,6 +31,7 @@
     "autoprefixer": "10.4.19",
     "postcss": "8.4.39",
     "tailwindcss": "3.4.6",
+    "tsx": "4.19.2",
     "typescript": "5.5.3",
     "vitest": "2.0.5"
   }

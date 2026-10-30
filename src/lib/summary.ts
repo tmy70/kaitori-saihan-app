@@ -8,18 +8,31 @@
 // ============================================================
 import { calculate, round2, sumItems } from "./calc";
 import { today } from "./format";
-import { CalcInput, CalcResult, Project, ProjectStage } from "./types";
+import { CalcInput, CalcResult, Project, ProjectStage, STAGE_ORDER } from "./types";
 
 // ---------------- ステージ ----------------
 
+/** 現行のステージ名 */
+const KNOWN_STAGES = new Set<string>(STAGE_ORDER);
+
+/**
+ * 保存されている値を現行のステージへ読み替える。
+ * 旧ステージ "reviewing"（検討中）は査定中にあたるため "assessing" とみなす。
+ * 想定外の値（将来のステージ名が混ざった場合など）も査定中として扱い、案件が開けなくなるのを防ぐ。
+ */
+export function normalizeStage(raw: unknown): ProjectStage {
+  if (typeof raw === "string" && KNOWN_STAGES.has(raw)) return raw as ProjectStage;
+  return "assessing";
+}
+
 /**
  * 案件の進行ステージ。
- * stage 未設定の旧データは、旧「買取完了」タグ（acquired）があれば買取済、無ければ検討中とみなす。
+ * stage 未設定の旧データは、旧「買取完了」タグ（acquired）があれば在庫、無ければ査定中とみなす。
  */
 export function stageOf(p: Project): ProjectStage {
-  if (p.stage) return p.stage;
+  if (p.stage) return normalizeStage(p.stage);
   if (p.acquired) return "acquired";
-  return "reviewing";
+  return "assessing";
 }
 
 /** アーカイブ済みか */

@@ -74,6 +74,43 @@ export function today(): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
+/** 日付（YYYY-MM-DD）に日数を足す。不正な日付はそのまま返す */
+export function addDays(date: string | undefined, days: number): string {
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date.slice(0, 10))) return date ?? "";
+  const d = new Date(date.slice(0, 10) + "T00:00:00");
+  if (isNaN(d.getTime())) return date;
+  d.setDate(d.getDate() + days);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/**
+ * 日付（YYYY-MM-DD）に月数を足す。
+ * 月末日の繰り上がり（1/31 + 1か月 = 3/3）を避けるため、足した先に同じ日が無ければその月の末日にする。
+ */
+export function addMonths(date: string | undefined, months: number): string {
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date.slice(0, 10))) return date ?? "";
+  const y = Number(date.slice(0, 4));
+  const m = Number(date.slice(5, 7));
+  const day = Number(date.slice(8, 10));
+  const total = (y * 12 + (m - 1)) + months;
+  const ny = Math.floor(total / 12);
+  const nm = (total % 12) + 1;
+  const lastDay = new Date(ny, nm, 0).getDate();
+  const nd = Math.min(day, lastDay);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${ny}-${p(nm)}-${p(nd)}`;
+}
+
+/** 和風の日付表記（YYYY-MM-DD → YYYY年M月D日）。未入力は空文字 */
+export function fmtDateJa(date: string | undefined | null): string {
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date.slice(0, 10))) return "";
+  const y = date.slice(0, 4);
+  const m = String(Number(date.slice(5, 7)));
+  const d = String(Number(date.slice(8, 10)));
+  return `${y}年${m}月${d}日`;
+}
+
 /** 日付表記（YYYY-MM-DD → YYYY/MM/DD）。未入力は "—" */
 export function fmtDate(date: string | undefined | null): string {
   if (!date) return "—";
