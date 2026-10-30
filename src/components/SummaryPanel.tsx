@@ -49,7 +49,7 @@ export function SummaryPanel({
           {/* 閉じているときの要点：営業利益の合計だけは常に見せる */}
           <div className="mt-0.5 flex items-baseline gap-1.5">
             <span className="text-[11px] text-muted">営業利益 合計</span>
-            <span className="text-base font-bold text-emerald-600 dark:text-emerald-400">
+            <span className="text-num-sm tabular-nums text-good-600 dark:text-good-500">
               {fmtMan(agg.operatingTotal)}
               <span className="ml-0.5 text-[10px] font-medium">万円</span>
             </span>
@@ -59,7 +59,7 @@ export function SummaryPanel({
       }
       right={<Badge tone={allActual ? "good" : "neutral"}>{basisLabel}</Badge>}
     >
-      <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-px bg-border lg:grid-cols-4">
         <Stat label="売上（販売価格）合計" value={fmtMan(agg.sellTotal)} unit="万円" />
         <Stat label="粗利益 合計" value={fmtMan(agg.grossTotal)} unit="万円" tone="brand" />
         <Stat label="営業利益 合計" value={fmtMan(agg.operatingTotal)} unit="万円" tone="profit" big />
@@ -72,9 +72,9 @@ export function SummaryPanel({
         <Stat label="1件平均 営業利益" value={fmtMan(agg.avgOperatingProfit)} unit="万円" small />
       </div>
 
-      <p className="px-4 py-2.5 text-[11px] leading-relaxed text-muted">
-        {periodLabel ? `期間: ${periodLabel}` : "期間: 全期間"} ／ 決済完了は実績（確定値）、それ以外は計画で集計。
-        利益率は「合計÷合計」の加重平均、サンプルは集計に含みません。
+      <p className="px-5 py-3 text-[11px] leading-relaxed text-faint">
+        {periodLabel ? `期間：${periodLabel}` : "期間：全期間"} ／ 決済完了は実績（確定値）、それ以外は計画で集計。
+        利益率は「合計÷合計」の加重平均です。
       </p>
     </Collapsible>
   );
@@ -97,16 +97,22 @@ function Stat({
 }) {
   const color =
     tone === "profit"
-      ? "text-emerald-600 dark:text-emerald-400"
+      ? "text-good-600 dark:text-good-500"
       : tone === "brand"
-      ? "text-brand-600 dark:text-brand-100"
+      ? "text-brand-600 dark:text-brand-300"
       : "text-fg";
   return (
-    <div className="bg-surface px-2 py-2.5 text-center">
-      <div className="text-[10px] leading-tight text-muted">{label}</div>
-      <div className={cn("font-bold", big ? "text-xl" : small ? "text-xs" : "text-base", color)}>
+    <div className="bg-surface px-3 py-3">
+      <div className="text-[10px] leading-tight text-faint">{label}</div>
+      <div
+        className={cn(
+          "mt-0.5 font-bold tabular-nums",
+          big ? "text-num" : small ? "text-sm" : "text-num-sm",
+          color
+        )}
+      >
         {value}
-        {unit && <span className="ml-0.5 text-[10px] font-medium">{unit}</span>}
+        {unit && <span className="ml-0.5 text-[10px] font-semibold text-muted">{unit}</span>}
       </div>
     </div>
   );

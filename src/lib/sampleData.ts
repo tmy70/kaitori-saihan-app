@@ -3,8 +3,10 @@
 // 仕様書の期待値（粗利益・営業利益）と一致することを calc.test.ts で検証する。
 // 個人情報は含めず、物件名・所在地はダミー。
 // ============================================================
-import { CalcInput, PropertyType, Project } from "./types";
+import { CalcInput, PropertyType, Project, PROPERTY_TYPE_LABELS } from "./types";
 import { createChecklist, createSchedule, defaultPassLine } from "./checklist";
+import { emptyAssessment } from "./assessment";
+import { defaultDocSettings } from "./docDefaults";
 import { genId, today } from "./format";
 import { DEFAULT_COMPANY_ID } from "./companies";
 
@@ -195,15 +197,24 @@ export function createSampleProject(type: PropertyType, companyId = DEFAULT_COMP
   };
 }
 
-/** 空の新規案件を生成（マイ案件＝isSample:false） */
-export function createEmptyProject(type: PropertyType, companyId: string, name: string): Project {
+/**
+ * 新規案件を生成する。
+ *
+ * 作った直後から使えるように、種別ごとの概算（目安額）を査定入力に入れておく。
+ * これにより「サンプルを複製してから使う」必要がなくなり、
+ * 再販想定価格を入れた時点で4本の買取価格が出る。
+ */
+export function createEmptyProject(type: PropertyType, companyId: string, name = ""): Project {
   const base = createSampleProject(type, companyId);
   return {
     ...base,
     id: genId(),
-    name: name || "新規案件",
+    name: name || `${PROPERTY_TYPE_LABELS[type]}の査定`,
     isSample: false,
+    stage: "assessing",
     calc: { propertyType: type, sellPrice: 0, acquisition: {}, expenses: {}, selling: {} },
+    assessment: emptyAssessment(type),
+    docs: defaultDocSettings(),
     ringi: { ...base.ringi, propertyName: name || "", address: "" },
   };
 }

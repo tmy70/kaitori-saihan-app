@@ -13,7 +13,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 import * as db from "@/lib/db";
-import { Tabs, Button, Badge, TextInput, cn } from "@/components/ui";
+import { Tabs, Button, Badge, cn } from "@/components/ui";
 import {
   isDecidedOrLater,
   PROPERTY_TYPE_LABELS,
@@ -21,7 +21,6 @@ import {
   STAGE_LABELS,
   STAGE_ORDER,
 } from "@/lib/types";
-import { isSampleProject } from "@/lib/sampleData";
 import { stageOf } from "@/lib/summary";
 import { assessmentToCalcInput } from "@/lib/assessment";
 import { sumItems } from "@/lib/calc";
@@ -179,37 +178,34 @@ function ProjectEditor() {
         </span>
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <TextInput
+      <div className="mb-5 flex flex-wrap items-center gap-2.5">
+        <input
           value={current.name}
           onChange={(e) => update({ name: e.target.value })}
           placeholder="案件名"
-          className="max-w-md flex-1 text-base font-bold"
+          aria-label="案件名"
+          className="min-w-[240px] max-w-lg flex-1 rounded-xl border border-transparent bg-transparent px-2 py-1 text-[22px] font-bold tracking-tight text-fg outline-none transition-base placeholder:text-faint hover:border-border focus:border-brand-500 focus:bg-surface"
         />
         <Badge tone="neutral">{PROPERTY_TYPE_LABELS[current.propertyType]}</Badge>
         {company && <Badge tone="brand">{company.name}</Badge>}
         <TagToggle
           active={!!current.favorite}
           onClick={() => update({ favorite: !current.favorite })}
-          activeClass="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+          activeClass="border-warn-500/40 bg-warn-500/10 text-warn-600 dark:text-warn-500"
         >
           {current.favorite ? "★ お気に入り" : "☆ お気に入り"}
         </TagToggle>
-        {!isSampleProject(current) && (
-          <TagToggle
-            active={!!current.archived}
-            onClick={() => update({ archived: !current.archived })}
-            activeClass="border-border bg-surface-2 text-fg"
-          >
-            {current.archived ? "アーカイブ済み（戻す）" : "アーカイブ"}
-          </TagToggle>
-        )}
+        <TagToggle
+          active={!!current.archived}
+          onClick={() => update({ archived: !current.archived })}
+          activeClass="border-border-strong bg-surface-2 text-fg"
+        >
+          {current.archived ? "アーカイブ済み（戻す）" : "アーカイブ"}
+        </TagToggle>
       </div>
 
       {/* ---- 進行ステージ ---- */}
-      {!isSampleProject(current) && (
-        <StageStepper stage={stage} onChange={changeStage} />
-      )}
+      <StageStepper stage={stage} onChange={changeStage} />
 
       {/* ---- 社内用PDF（買取決定後に出す） ---- */}
       {isDecidedOrLater(stage) && (
@@ -230,8 +226,9 @@ function ProjectEditor() {
 }
 
 /**
- * 進行ステージの切り替え。
- * 左から順に進む流れを見せ、押した段階へ移動する。
+ * 進行ステージ。
+ * 左から右へ進む流れを線でつなぎ、済んだ段階・いまの段階・これからを一目で分かるようにする。
+ * どの段階にも直接移動できる（押し間違えても戻せる）。
  */
 function StageStepper({
   stage,
@@ -241,34 +238,67 @@ function StageStepper({
   onChange: (s: ProjectStage) => void;
 }) {
   const currentIndex = STAGE_ORDER.indexOf(stage);
+  const next = STAGE_ORDER[currentIndex + 1];
+
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-1 rounded-2xl border border-border bg-surface p-2">
-      <span className="px-2 text-xs font-semibold text-muted">進行状況</span>
-      {STAGE_ORDER.map((s, i) => {
-        const done = i < currentIndex;
-        const active = i === currentIndex;
-        return (
-          <button
-            key={s}
-            type="button"
-            onClick={() => onChange(s)}
-            aria-current={active ? "step" : undefined}
-            className={cn(
-              "min-h-[36px] rounded-xl px-3 text-xs font-semibold transition-base",
-              active
-                ? "bg-brand-500 text-white"
-                : done
-                ? "bg-brand-500/10 text-brand-600 dark:text-brand-100"
-                : "text-muted hover:bg-surface-2 hover:text-fg"
-            )}
-          >
-            {STAGE_LABELS[s]}
-          </button>
-        );
-      })}
-      {stage === "offered" && (
-        <Button className="ml-auto min-h-[36px] text-xs" onClick={() => onChange("decided")}>
-          買取決定にする
+    <div className="mb-5 flex items-center gap-4 rounded-2xl border border-border bg-surface px-5 py-3.5">
+      <ol className="flex flex-1 items-center">
+        {STAGE_ORDER.map((s, i) => {
+          const done = i < currentIndex;
+          const active = i === currentIndex;
+          return (
+            <li key={s} className="flex items-center">
+              {i > 0 && (
+                <span
+                  className={cn("mx-2 h-px w-6 shrink-0", done || active ? "bg-brand-500" : "bg-border")}
+                  aria-hidden
+                />
+              )}
+              <button
+                type="button"
+                onClick={() => onChange(s)}
+                aria-current={active ? "step" : undefined}
+                className={cn(
+                  "group flex items-center gap-2 rounded-lg px-2 py-1 transition-base",
+                  !active && "hover:bg-surface-2"
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-base",
+                    active
+                      ? "bg-brand-600 text-white"
+                      : done
+                      ? "bg-brand-500/15 text-brand-600 dark:text-brand-300"
+                      : "border border-border text-faint"
+                  )}
+                >
+                  {done ? (
+                    <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+                      <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  ) : (
+                    i + 1
+                  )}
+                </span>
+                <span
+                  className={cn(
+                    "whitespace-nowrap text-xs font-semibold transition-base",
+                    active ? "text-fg" : done ? "text-muted" : "text-faint group-hover:text-muted"
+                  )}
+                >
+                  {STAGE_LABELS[s]}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+
+      {/* 次にやることを1つだけ提示する */}
+      {next && (
+        <Button className="min-h-[34px] shrink-0 text-xs" onClick={() => onChange(next)}>
+          {STAGE_LABELS[next]}にする
         </Button>
       )}
     </div>

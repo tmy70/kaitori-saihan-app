@@ -15,7 +15,7 @@ export function TopNav() {
   return (
     <nav className="no-print sticky top-0 z-50 border-b border-border bg-surface/95 backdrop-blur">
       <div className="mx-auto flex h-14 w-full max-w-[1280px] items-center gap-6 px-6">
-        <Link href="/" className="text-sm font-bold text-fg">
+        <Link href="/" className="text-[15px] font-bold tracking-tight text-fg">
           買取再販 査定・稟議
         </Link>
         <div className="flex items-center gap-1">
@@ -26,9 +26,9 @@ export function TopNav() {
                 key={it.href}
                 href={it.href}
                 className={cn(
-                  "rounded-lg px-3 py-1.5 text-sm font-semibold transition-base",
+                  "rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-base",
                   active
-                    ? "bg-brand-500/10 text-brand-600 dark:text-brand-100"
+                    ? "bg-surface-2 text-fg"
                     : "text-muted hover:bg-surface-2 hover:text-fg"
                 )}
               >
@@ -40,7 +40,7 @@ export function TopNav() {
         <button
           onClick={() => toggleTheme()}
           aria-label="テーマ切替"
-          className="ml-auto rounded-lg border border-border bg-surface p-2 text-muted transition-base hover:text-fg"
+          className="ml-auto rounded-lg border border-border bg-surface p-2 text-muted transition-base hover:border-border-strong hover:text-fg"
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" strokeLinecap="round" strokeLinejoin="round" />

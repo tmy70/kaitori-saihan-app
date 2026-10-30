@@ -4,21 +4,25 @@
 
 /* ライト/ダークのテーマ変数（RGB 各値・スペース区切り） */
 :root {
-  --bg: 244 246 249;
+  --bg: 250 250 251;
   --surface: 255 255 255;
-  --surface-2: 248 250 252;
-  --border: 226 232 240;
-  --fg: 17 24 39;
-  --muted: 100 116 139;
+  --surface-2: 245 246 248;
+  --border: 231 233 238;
+  --border-strong: 212 216 223;
+  --fg: 24 26 31;
+  --muted: 107 114 128;
+  --faint: 156 163 175;
 }
 
 .dark {
-  --bg: 10 18 31;
-  --surface: 17 28 46;
-  --surface-2: 23 38 62;
-  --border: 38 56 84;
-  --fg: 226 232 240;
-  --muted: 148 168 196;
+  --bg: 12 13 16;
+  --surface: 23 25 30;
+  --surface-2: 31 34 41;
+  --border: 44 48 56;
+  --border-strong: 62 68 79;
+  --fg: 237 239 243;
+  --muted: 148 155 168;
+  --faint: 116 123 136;
 }
 
 html,
@@ -30,6 +34,19 @@ body {
 
 body {
   font-feature-settings: "palt";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 数字は字幅をそろえて、桁が動かないようにする */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* キーボード操作のときだけフォーカスリングを出す */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(99 102 241 / 0.35);
+  border-radius: 0.5rem;
 }
 
 /* 数値入力のスピナーを消す（スマホ最適化） */

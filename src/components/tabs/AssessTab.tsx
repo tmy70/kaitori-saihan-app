@@ -238,48 +238,84 @@ export function AssessTab() {
 
       {/* ===================== 結果 ===================== */}
       <div className="space-y-4">
-        <Card>
+        <Card className="overflow-hidden">
           <CardHeader
             title="買取価格"
-            desc="利益を確保したうえで出せる価格。1本選ぶと書類に入ります"
+            desc="確保したい利益を選んでください。選んだ価格がそのまま書類に入ります"
           />
-          <div className="p-4">
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              {lines.map((l) => {
-                const selected = a?.selectedProfitLine === l.profit;
-                const margin = resolved.resalePrice > 0 ? l.profit / resolved.resalePrice : 0;
-                return (
-                  <button
-                    key={l.profit}
-                    type="button"
-                    onClick={() =>
-                      set({ selectedProfitLine: l.profit, offerPrice: Math.max(0, l.displayPrice) })
-                    }
-                    disabled={!l.result.feasible}
-                    className={cn(
-                      "rounded-2xl border p-3 text-left transition-base",
-                      selected
-                        ? "border-brand-500 bg-brand-500/10 ring-2 ring-brand-500/30"
-                        : "border-border bg-surface-2 hover:border-brand-500/60",
-                      !l.result.feasible && "cursor-not-allowed opacity-50"
-                    )}
-                  >
-                    <div className="text-sm font-semibold text-muted">利益 {l.profit}万円</div>
-                    <div className="mt-1 text-3xl font-bold leading-tight tabular-nums text-fg">
-                      {l.result.feasible ? fmtMan(l.displayPrice) : "—"}
-                      <span className="ml-1 text-base font-semibold text-muted">万円</span>
-                    </div>
-                    <div className="mt-1.5 text-xs text-muted">
-                      {l.result.feasible ? `利益率 ${fmtPct(margin, 1)}` : "この利益は確保できません"}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+          <div className="p-4 pt-3">
+            {resolved.resalePrice <= 0 ? (
+              <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center">
+                <p className="text-sm font-semibold text-fg">再販想定価格を入れてください</p>
+                <p className="mt-1 text-xs text-muted">
+                  入れた瞬間に、利益100・150・200・250万円それぞれの買取価格が出ます。
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+                {lines.map((l) => {
+                  const selected = a?.selectedProfitLine === l.profit;
+                  const margin = resolved.resalePrice > 0 ? l.profit / resolved.resalePrice : 0;
+                  return (
+                    <button
+                      key={l.profit}
+                      type="button"
+                      onClick={() =>
+                        set({ selectedProfitLine: l.profit, offerPrice: Math.max(0, l.displayPrice) })
+                      }
+                      disabled={!l.result.feasible}
+                      aria-pressed={selected}
+                      className={cn(
+                        "relative rounded-2xl border px-3.5 py-3.5 text-left transition-base",
+                        selected
+                          ? "border-brand-600 bg-brand-600 text-white"
+                          : "border-border bg-surface hover:border-brand-400 hover:bg-brand-50 dark:hover:bg-brand-600/10",
+                        !l.result.feasible && "cursor-not-allowed opacity-40"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "text-xs font-semibold",
+                          selected ? "text-brand-100" : "text-muted"
+                        )}
+                      >
+                        利益 {l.profit}万円
+                      </div>
+                      <div className="mt-1.5 text-num-lg tabular-nums">
+                        {l.result.feasible ? fmtMan(l.displayPrice) : "—"}
+                        <span
+                          className={cn(
+                            "ml-1 text-sm font-semibold",
+                            selected ? "text-brand-100" : "text-muted"
+                          )}
+                        >
+                          万円
+                        </span>
+                      </div>
+                      <div
+                        className={cn(
+                          "mt-1 text-[11px]",
+                          selected ? "text-brand-100" : "text-faint"
+                        )}
+                      >
+                        {l.result.feasible ? `利益率 ${fmtPct(margin, 1)}` : "この利益は確保できません"}
+                      </div>
+                      {selected && (
+                        <span className="absolute right-3 top-3 text-white" aria-hidden>
+                          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+                            <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {/* 提示価格（選んだ価格が入る。手入力で微調整もできる） */}
-            <div className="mt-4 flex flex-wrap items-end gap-4 rounded-2xl border border-border bg-surface-2 p-4">
-              <div className="w-48">
+            <div className="mt-3 flex flex-wrap items-end gap-5 rounded-2xl bg-surface-2 p-4">
+              <div className="w-44">
                 <Field label="提示する買取価格" hint="書類に印字される価格です">
                   <NumberInput
                     value={offerPrice}
@@ -331,11 +367,17 @@ function OfferSummary({
   }, [offerPrice, type, assessment]);
 
   const tone = profit <= 0 ? "bad" : profit >= 200 ? "good" : "warn";
+  const color =
+    tone === "good"
+      ? "text-good-600 dark:text-good-500"
+      : tone === "bad"
+      ? "text-bad-600 dark:text-bad-500"
+      : "text-warn-600 dark:text-warn-500";
   return (
     <div className="flex items-center gap-3">
       <div>
         <div className="text-xs text-muted">この価格で買った場合の利益</div>
-        <div className="text-xl font-bold tabular-nums text-fg">
+        <div className={cn("text-num tabular-nums", color)}>
           {fmtMan(profit)}
           <span className="ml-1 text-sm font-semibold text-muted">万円</span>
         </div>

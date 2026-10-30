@@ -16,7 +16,7 @@ import {
 } from "./assessment";
 import { PROFIT_LINES, TYPE_PRESETS } from "./presets";
 import { AssessmentInput, Project, PropertyType } from "./types";
-import { createSampleProject } from "./sampleData";
+import { createEmptyProject, createSampleProject } from "./sampleData";
 
 const TYPES: PropertyType[] = ["building", "land", "kenuri", "mansion", "subdivision"];
 
@@ -177,6 +177,50 @@ describe("assessmentToCalcInput（査定→計算書）", () => {
     const calc = assessmentToCalcInput("building", sampleAssessment("building"), 500);
     expect(calc.acquisition.purchase).toBe(500);
     expect(calc.acquisition.buyFee).toBe(21); // 500×3%＋6万円
+  });
+});
+
+describe("新規案件（サンプルを複製しなくても使えること）", () => {
+  it("作った直後から種別ごとの概算が入っている", () => {
+    for (const type of TYPES) {
+      const p = createEmptyProject(type, "yukari");
+      const preset = TYPE_PRESETS[type];
+      expect(p.assessment, type).toBeDefined();
+      expect(p.assessment?.workCost, `${type} 工事費`).toBe(preset.workCost);
+      expect(p.assessment?.registration, `${type} 登記費用`).toBe(preset.registration);
+      expect(p.assessment?.acquisitionTax, `${type} 取得税`).toBe(preset.acquisitionTax);
+      expect(p.assessment?.expenses, `${type} 経費`).toBe(preset.expenses);
+      expect(p.assessment?.sellingOther, `${type} 販売経費`).toBe(preset.sellingOther);
+      expect(p.stage).toBe("assessing");
+    }
+  });
+
+  it("再販想定価格を入れるだけで4本の買取価格が出る", () => {
+    for (const type of TYPES) {
+      const p = createEmptyProject(type, "yukari");
+      // 価格未入力のうちは成立しない
+      expect(priceLines(type, p.assessment).every((l) => !l.result.feasible)).toBe(true);
+
+      // 再販想定価格だけを入れる（査定画面で最初に打つ値）
+      const withPrice = { ...p.assessment!, resalePrice: RESALE[type] };
+      const lines = priceLines(type, withPrice);
+      expect(lines).toHaveLength(4);
+      for (const l of lines) {
+        expect(l.result.feasible, `${type} / 利益${l.profit}万円`).toBe(true);
+        expect(l.displayPrice).toBeGreaterThan(0);
+        // 逆算した価格で順計算すると、指定した利益に戻る
+        const forward = calculate(assessmentToCalcInput(type, withPrice, l.result.buyPrice));
+        expect(Math.abs(forward.operatingProfit - l.profit), `${type}/${l.profit}`).toBeLessThan(TOL);
+      }
+    }
+  });
+
+  it("書類の既定値（前提条件・保証の条件）が入っている", () => {
+    const p = createEmptyProject("building", "yukari");
+    expect(p.docs?.conditions?.length).toBeGreaterThan(0);
+    expect(p.docs?.guaranteeConditions?.length).toBeGreaterThan(0);
+    // 売主様側の仲介手数料は未選択で始まる（選ぶまで買取査定書を出さない）
+    expect(p.docs?.sellerFee).toBe("");
   });
 });
 

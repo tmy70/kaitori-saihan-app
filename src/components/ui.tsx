@@ -21,10 +21,7 @@ export function Card({
 }) {
   return (
     <div
-      className={cn(
-        "rounded-2xl border border-border bg-surface shadow-card transition-base",
-        className
-      )}
+      className={cn("rounded-2xl border border-border bg-surface transition-base", className)}
       style={style}
     >
       {children}
@@ -34,10 +31,10 @@ export function Card({
 
 export function CardHeader({ title, desc, action }: { title: string; desc?: string; action?: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
+    <div className="flex items-start justify-between gap-3 px-5 pb-1 pt-4">
       <div>
-        <h3 className="text-sm font-bold text-fg">{title}</h3>
-        {desc && <p className="mt-0.5 text-xs text-muted">{desc}</p>}
+        <h3 className="text-[13px] font-bold tracking-wide text-fg">{title}</h3>
+        {desc && <p className="mt-0.5 text-xs leading-relaxed text-muted">{desc}</p>}
       </div>
       {action}
     </div>
@@ -53,16 +50,16 @@ export function Button({
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: BtnVariant }) {
   const styles: Record<BtnVariant, string> = {
-    primary: "bg-brand-500 text-white hover:bg-brand-600 active:bg-brand-700",
-    secondary: "bg-surface-2 text-fg border border-border hover:bg-border/40",
-    ghost: "text-fg hover:bg-surface-2",
-    danger: "bg-red-600 text-white hover:bg-red-700",
-    accent: "bg-accent-500 text-brand-900 hover:bg-accent-600",
+    primary: "bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800",
+    secondary: "bg-surface text-fg border border-border hover:border-border-strong hover:bg-surface-2",
+    ghost: "text-muted hover:bg-surface-2 hover:text-fg",
+    danger: "bg-bad-600 text-white hover:brightness-110",
+    accent: "bg-good-600 text-white hover:brightness-110",
   };
   return (
     <button
       className={cn(
-        "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition-base disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex min-h-[40px] items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition-base disabled:cursor-not-allowed disabled:opacity-40",
         styles[variant],
         className
       )}
@@ -85,9 +82,9 @@ export function Field({
 }) {
   return (
     <label className="block">
-      {label && <span className="mb-1 block text-xs font-medium text-muted">{label}</span>}
+      {label && <span className="mb-1.5 block text-xs font-semibold text-muted">{label}</span>}
       {children}
-      {hint && <span className="mt-1 block text-[11px] text-muted">{hint}</span>}
+      {hint && <span className="mt-1 block text-[11px] leading-snug text-faint">{hint}</span>}
     </label>
   );
 }
@@ -97,7 +94,7 @@ export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
     <input
       {...props}
       className={cn(
-        "w-full rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-sm text-fg outline-none transition-base placeholder:text-muted/60 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20",
+        "w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm text-fg outline-none transition-base placeholder:text-faint hover:border-border-strong focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15",
         props.className
       )}
     />
@@ -109,7 +106,7 @@ export function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
     <textarea
       {...props}
       className={cn(
-        "w-full rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-sm text-fg outline-none transition-base placeholder:text-muted/60 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20",
+        "w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm text-fg outline-none transition-base placeholder:text-faint hover:border-border-strong focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15",
         props.className
       )}
     />
@@ -173,14 +170,14 @@ export function NumberInput({
           value={text}
           placeholder={placeholder ?? "0"}
           onChange={handleChange}
-          className="w-full rounded-xl border border-border bg-surface-2 py-2.5 pl-3 pr-12 text-right text-sm font-medium text-fg outline-none transition-base focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+          className="w-full rounded-xl border border-border bg-surface py-2.5 pl-3 pr-12 text-right text-sm font-semibold tabular-nums text-fg outline-none transition-base hover:border-border-strong focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15"
         />
-        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-faint">
           {suffix}
         </span>
       </div>
       {showHint && (
-        <span className="mt-0.5 block text-right text-[10px] text-muted">
+        <span className="mt-0.5 block text-right text-[10px] text-faint">
           = {Math.round((value as number) * 10000).toLocaleString("ja-JP")} 円
         </span>
       )}
@@ -201,20 +198,33 @@ export function Select({
   className?: string;
 }) {
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={cn(
-        "w-full rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-sm text-fg outline-none transition-base focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20",
-        className
-      )}
-    >
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(
+          "w-full cursor-pointer appearance-none rounded-xl border border-border bg-surface px-3 py-2.5 pr-9 text-sm text-fg outline-none transition-base hover:border-border-strong focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15",
+          className
+        )}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      {/* 見た目を揃えるため、矢印は自前で描く（appearance-none で既定の矢印を消している） */}
+      <svg
+        className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+        aria-hidden
+      >
+        <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
   );
 }
 
@@ -233,7 +243,7 @@ export function Toggle({
     <span
       className={cn(
         "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-base",
-        checked ? "bg-emerald-500" : "bg-border"
+        checked ? "bg-brand-600" : "bg-border-strong"
       )}
     >
       <span
@@ -284,14 +294,14 @@ export function Badge({
   children: React.ReactNode;
 }) {
   const tones: Record<string, string> = {
-    good: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-    warn: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-    bad: "bg-red-500/15 text-red-600 dark:text-red-400",
-    neutral: "bg-surface-2 text-muted",
-    brand: "bg-brand-500/15 text-brand-600 dark:text-brand-100",
+    good: "bg-good-500/12 text-good-600 dark:text-good-500",
+    warn: "bg-warn-500/12 text-warn-600 dark:text-warn-500",
+    bad: "bg-bad-500/12 text-bad-600 dark:text-bad-500",
+    neutral: "border border-border bg-surface-2 text-muted",
+    brand: "bg-brand-500/12 text-brand-600 dark:text-brand-300",
   };
   return (
-    <span className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold", tones[tone])}>
+    <span className={cn("inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold", tones[tone])}>
       {children}
     </span>
   );
@@ -327,21 +337,22 @@ export function Tabs({
   }, [tabs.length]);
 
   return (
-    <div ref={ref} className="sticky top-0 z-10 -mx-4 mb-4 border-b border-border bg-bg/90 px-4 backdrop-blur">
+    <div ref={ref} className="sticky top-14 z-20 -mx-6 mb-5 bg-bg/85 px-6 py-2 backdrop-blur">
       {/*
         タブは折り返して全部見えるようにする（横スクロールだと画面外のタブに
         気づけず、機能に到達できないため）。
       */}
-      <div className="flex flex-wrap gap-x-1">
+      <div className="flex flex-wrap gap-1 rounded-xl border border-border bg-surface p-1">
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => onChange(t.key)}
+            aria-current={active === t.key ? "page" : undefined}
             className={cn(
-              "min-h-[40px] whitespace-nowrap border-b-2 px-2.5 py-2 text-sm font-semibold transition-base",
+              "min-h-[34px] whitespace-nowrap rounded-lg px-3 text-[13px] font-semibold transition-base",
               active === t.key
-                ? "border-brand-500 text-brand-600 dark:text-brand-100"
-                : "border-transparent text-muted hover:text-fg"
+                ? "bg-brand-600 text-white"
+                : "text-muted hover:bg-surface-2 hover:text-fg"
             )}
           >
             {t.label}
@@ -375,12 +386,12 @@ export function Collapsible({
   className?: string;
 }) {
   return (
-    <div className={cn("overflow-hidden rounded-2xl border border-border bg-surface shadow-card", className)}>
+    <div className={cn("overflow-hidden rounded-2xl border border-border bg-surface", className)}>
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left transition-base hover:bg-surface-2"
+        className="flex w-full items-center justify-between gap-2 px-5 py-3.5 text-left transition-base hover:bg-surface-2"
       >
         <div className="min-w-0 flex-1">{title}</div>
         <div className="flex shrink-0 items-center gap-2">
@@ -419,7 +430,7 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onClick={onClose}>
       <div
-        className="w-full max-w-md rounded-t-2xl bg-surface p-5 shadow-card sm:rounded-2xl"
+        className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-pop"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="mb-3 text-base font-bold text-fg">{title}</h3>
