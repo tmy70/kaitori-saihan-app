@@ -5,13 +5,14 @@
 // ============================================================
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
-import { Card, CardHeader, NumberInput, TextInput, Field, Button, Badge, Select, Toggle, cn } from "@/components/ui";
+import { Card, CardHeader, NumberInput, TextInput, Field, Button, Badge, Select, Toggle, Collapsible, cn } from "@/components/ui";
 import {
   ACQUISITION_ITEMS,
   EXPENSE_ITEMS,
   SELLING_ITEMS,
   ItemDef,
 } from "@/lib/itemDefs";
+import { SimTab } from "@/components/tabs/SimTab";
 import {
   calculate,
   judgeProfit,
@@ -51,6 +52,7 @@ export function CalcTab() {
   const judge = judgeProfit(result);
   // 費目ごとのPDF表示チェックは上級者向けなので既定は隠す（入力欄の視覚ノイズを減らす）
   const [showPdfControls, setShowPdfControls] = useState(false);
+  const [simOpen, setSimOpen] = useState(false);
 
   function setCalc(patch: Partial<CalcInput>) {
     update({ calc: { ...calc, ...patch } });
@@ -417,6 +419,19 @@ export function CalcTab() {
           1費目ずつ調整したいときは下をオンにすると、各費目に「PDF」チェック（チェック＝印刷する）が出ます。
         </p>
       </Card>
+
+      {/* 価格試算（強気/標準/弱気のシナリオ比較）。査定タブの4本表示と役割が近いため、
+          ここに折りたたんで置いている。 */}
+      <Collapsible
+        open={simOpen}
+        onToggle={() => setSimOpen((v) => !v)}
+        title={<span className="text-sm font-bold text-fg">価格試算（シナリオ比較・損益分岐）</span>}
+        right={<span className="text-xs text-muted">販売価格を振ったときの利益を見る</span>}
+      >
+        <div className="p-4">
+          <SimTab />
+        </div>
+      </Collapsible>
     </div>
   );
 }

@@ -32,10 +32,10 @@ function makeProject(over: Partial<Project> = {}): Project {
 }
 
 describe("ステージ判定", () => {
-  it("stage 未設定は検討中", () => {
-    expect(stageOf(makeProject())).toBe("reviewing");
+  it("stage 未設定は査定中", () => {
+    expect(stageOf(makeProject())).toBe("assessing");
   });
-  it("旧データの acquired フラグは買取済に読み替える", () => {
+  it("旧データの acquired フラグは在庫（買取済）に読み替える", () => {
     expect(stageOf(makeProject({ acquired: true }))).toBe("acquired");
   });
   it("stage が入っていればそれを優先（旧フラグより後勝ちしない）", () => {

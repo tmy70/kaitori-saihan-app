@@ -1,6 +1,6 @@
 // 計算書PDF
 import React from "react";
-import { Document, View, Text, BasePage, styles, COLORS } from "./common";
+import { Document, View, Text, BasePage, styles, SectionTitle, COLORS } from "./common";
 import { Company, Project } from "@/lib/types";
 import {
   calculate,
@@ -103,7 +103,7 @@ export function CalcPdf({ project, company }: { project: Project; company?: Comp
         {/* 分譲地：区画別の販売明細 */}
         {isSubdivision && lots.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>区画別 販売明細</Text>
+            <SectionTitle>区画別 販売明細</SectionTitle>
             <View style={{ flexDirection: "row", backgroundColor: COLORS.light }}>
               <Text style={[styles.td, { width: "34%", fontWeight: "bold" }]}>区画</Text>
               <Text style={[styles.td, { width: "22%", textAlign: "right", fontWeight: "bold" }]}>坪数</Text>
@@ -127,24 +127,24 @@ export function CalcPdf({ project, company }: { project: Project; company?: Comp
           </>
         )}
 
-        <Text style={styles.sectionTitle}>取得原価</Text>
+        <SectionTitle>取得原価</SectionTitle>
         <Rows items={acqItems} values={c.acquisition} group="acquisition" pdfVisible={pdfVisible} showAll={showAll} />
         <TotalRow label="取得原価 合計" value={r.acquisitionCost} />
 
-        <Text style={styles.sectionTitle}>経費</Text>
+        <SectionTitle>経費</SectionTitle>
         <Rows items={expItems} values={c.expenses} group="expenses" pdfVisible={pdfVisible} showAll={showAll} />
         <TotalRow label="経費 合計" value={r.expensesTotal} />
 
         <TotalRow label="売上原価（取得原価＋経費）" value={r.costOfSales} />
 
-        <Text style={styles.sectionTitle}>利益</Text>
+        <SectionTitle>利益</SectionTitle>
         <TotalRow label="粗利益（販売価格−売上原価）" value={r.grossProfit} accent />
         <View style={styles.row}>
           <Text style={styles.cellLabel}>粗利率</Text>
           <Text style={styles.cellValue}>{fmtPct(r.grossMargin)}</Text>
         </View>
 
-        <Text style={styles.sectionTitle}>販売経費</Text>
+        <SectionTitle>販売経費</SectionTitle>
         <Rows items={sellItems} values={c.selling} group="selling" pdfVisible={pdfVisible} showAll={showAll} />
         <TotalRow label="販売経費 合計" value={r.sellingExpenses} />
 

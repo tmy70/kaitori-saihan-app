@@ -59,26 +59,6 @@ export function ActualTab() {
     const base = started ? aCalc : (structuredClone(plan) as CalcInput);
     setActualCalc({ [group]: { ...base[group], [key]: value } } as Partial<CalcInput>);
   }
-  function setStage(next: ProjectStage) {
-    // 決済完了にするときは、実績が未入力なら計画をコピーして初期化し、決済日も未入力なら本日を入れる
-    if (next === "settled") {
-      update({
-        stage: next,
-        actual: {
-          ...actual,
-          calc: actual.calc ?? (structuredClone(plan) as CalcInput),
-          settleDate: actual.settleDate || today(),
-        },
-      });
-      return;
-    }
-    if (next === "acquired" && !actual.purchaseDate) {
-      update({ stage: next, actual: { ...actual, purchaseDate: today() } });
-      return;
-    }
-    update({ stage: next });
-  }
-
   // ---------------- 追加費目（実績側で足した費目） ----------------
   function extraOf(field: ExtraField): CustomItem[] {
     // 計画側・実績側の両方の追加費目を、キー重複を除いて合わせて表示する
@@ -113,28 +93,15 @@ export function ActualTab() {
       {/* ステージ（進行状況） */}
       <Card>
         <CardHeader
-          title="進行ステージ"
-          desc="決済完了にすると、一覧の「決済完了」タブと粗利集計に確定値が反映されます"
-          action={<Badge tone={stage === "settled" ? "good" : stage === "acquired" ? "brand" : "neutral"}>{STAGE_LABELS[stage]}</Badge>}
+          title="決済の日付"
+          desc="決済完了にすると、一覧の「決済完了」タブと粗利集計に確定値が反映されます（進行状況は画面上部で切り替えます）"
+          action={
+            <Badge tone={stage === "settled" ? "good" : stage === "acquired" ? "brand" : "neutral"}>
+              {STAGE_LABELS[stage]}
+            </Badge>
+          }
         />
-        <div className="grid grid-cols-3 gap-2 p-4">
-          {(["reviewing", "acquired", "settled"] as ProjectStage[]).map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setStage(s)}
-              className={cn(
-                "min-h-[44px] rounded-xl border px-2 text-xs font-semibold transition-base",
-                stage === s
-                  ? "border-brand-500 bg-brand-500/10 text-brand-600 dark:text-brand-100"
-                  : "border-border bg-surface-2 text-muted hover:text-fg"
-              )}
-            >
-              {STAGE_LABELS[s]}
-            </button>
-          ))}
-        </div>
-        <div className="grid grid-cols-1 gap-3 border-t border-border p-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2">
           <Field label="買取（仕入）決済日" hint="在庫として保有を開始した日">
             <TextInput
               type="date"

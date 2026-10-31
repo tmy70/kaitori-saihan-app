@@ -4,67 +4,8 @@
 // ============================================================
 import { create } from "zustand";
 import { AppSettings, Company, Project } from "./types";
-import { reconcileChecklist, reconcileSchedule, defaultPassLine } from "./checklist";
+import { normalizeProject } from "./migrate";
 import * as db from "./db";
-
-/**
- * 読み込んだ案件を現行のデータ構造に正規化する。
- *  ・チェックリストを物件種別に合わせて再構成（旧データの移行を含む）
- *  ・追加費目の配列が無い場合は空配列で補う
- */
-/**
- * 旧データ移行：取得原価にあった「境界確定/上下水道/外構」費用を経費へ移す。
- * （費目を取得原価→経費へ統一したため。合計額は変わらないが、表示場所を正す）
- */
-function migrateSiteworkToExpenses(calc: Project["calc"]): Project["calc"] {
-  const moves: [string, string][] = [
-    ["boundary", "expBoundary"],
-    ["waterSupply", "expWaterSupply"],
-    ["exterior", "expExterior"],
-  ];
-  const acquisition = { ...calc.acquisition };
-  const expenses = { ...calc.expenses };
-  let changed = false;
-  for (const [from, to] of moves) {
-    if (acquisition[from] != null) {
-      expenses[to] = (expenses[to] ?? 0) + acquisition[from];
-      delete acquisition[from];
-      changed = true;
-    }
-  }
-  return changed ? { ...calc, acquisition, expenses } : calc;
-}
-
-/**
- * 旧データ移行：「買取完了」タグ（acquired: boolean）を進行ステージ（stage）へ移す。
- * stage が未設定で acquired===true のものだけ "acquired"（買取済）に読み替える。
- */
-function migrateStage(p: Project): Project["stage"] {
-  if (p.stage) return p.stage;
-  return p.acquired ? "acquired" : "reviewing";
-}
-
-function normalizeProject(p: Project): Project {
-  const migratedCalc = migrateSiteworkToExpenses(p.calc);
-  return {
-    ...p,
-    stage: migrateStage(p),
-    archived: p.archived ?? false,
-    calc: {
-      ...migratedCalc,
-      acquisitionExtra: migratedCalc.acquisitionExtra ?? [],
-      expensesExtra: migratedCalc.expensesExtra ?? [],
-      sellingExtra: migratedCalc.sellingExtra ?? [],
-      lots: migratedCalc.lots ?? [],
-    },
-    ringi: {
-      ...p.ringi,
-      checklist: reconcileChecklist(p.ringi.checklist, p.propertyType),
-      checklistPassLine: p.ringi.checklistPassLine ?? defaultPassLine(p.propertyType),
-      schedule: reconcileSchedule(p.ringi.schedule, p.propertyType),
-    },
-  };
-}
 
 interface AppState {
   companies: Company[];
