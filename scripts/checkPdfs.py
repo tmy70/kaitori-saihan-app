@@ -8,6 +8,8 @@
   4. 文字化け    置換文字や空白だけのページが無いか
   5. 行末ハイフン 日本語の途中で改行したときに「-」が入っていないか
                  （scripts/patchTextkit.mjs の効き目を確認する）
+  6. 見出しの孤立 見出しだけがページの末尾に残っていないか
+                 （本文が次のページへ送られて見出しだけ取り残される状態）
 
 使い方: python3 scripts/checkPdfs.py <PDFの出力先ディレクトリ>
 """
@@ -30,6 +32,26 @@ MIN_SIZE = 10.9
 # 印字領域の判定に使う余白（pt）。これより外に文字があればはみ出しとみなす
 MARGIN = 18.0
 
+# 見出しの文字サイズ（pt）。これ以上なら見出しとみなす
+HEADING_SIZE = 13.5
+# ページ下部の、ページ番号などが入る帯の高さ（pt）。孤立判定から除く
+FOOTER_BAND = 60.0
+
+
+def last_line_chars(chars):
+    """ページ本文の最後の1行ぶんの文字を返す（ページ番号などの帯は除く）。"""
+    if not chars:
+        return []
+    body = [c for c in chars if c["bottom"] < max(c2["bottom"] for c2 in chars) - 0.1 or True]
+    # ページ下部の帯（会社名・ページ番号）を除く
+    page_bottom = max(c["bottom"] for c in chars)
+    body = [c for c in chars if c["bottom"] < page_bottom - 0.5] or chars
+    footer_top = page_bottom - FOOTER_BAND
+    body = [c for c in body if c["top"] < footer_top] or body
+    bottom = max(c["bottom"] for c in body)
+    # 同じ行とみなす縦のぶれ
+    return [c for c in body if abs(c["bottom"] - bottom) < 3.0]
+
 def check(path):
     problems = []
     with pdfplumber.open(path) as pdf:
@@ -48,6 +70,13 @@ def check(path):
             for line in text.split("\n"):
                 if line.endswith("-") and len(line) >= 2 and CJK.search(line[-2]):
                     problems.append(f"{i}ページ目に日本語の行末ハイフン: ...{line[-12:]!r}")
+
+            # 見出しの孤立：最後の行が見出しの文字サイズだけで出来ていて、続きのページがある
+            if i < len(pdf.pages):
+                last = last_line_chars(chars)
+                if last and all(round(c["size"], 1) >= HEADING_SIZE for c in last):
+                    label = "".join(c["text"] for c in last)
+                    problems.append(f"{i}ページ目の末尾に見出しだけが残っている: {label!r}")
             for c in chars:
                 size = round(c["size"], 2)
                 sizes[size] += 1

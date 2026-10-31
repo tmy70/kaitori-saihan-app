@@ -29,7 +29,13 @@ import { SateiPdf } from "@/components/pdf/SateiPdf";
 import { HoshoPdf } from "@/components/pdf/HoshoPdf";
 import { HikakuPdf } from "@/components/pdf/HikakuPdf";
 import { KonkyoPdf } from "@/components/pdf/KonkyoPdf";
-import { DEFAULT_CONDITIONS, DEFAULT_GUARANTEE_CONDITIONS, defaultGuaranteeUntil, VALID_DAYS } from "@/lib/docDefaults";
+import {
+  DEFAULT_CONDITIONS,
+  DEFAULT_GUARANTEE_CONDITIONS,
+  DEFAULT_MEDIATION_COMPANY,
+  defaultGuaranteeUntil,
+  VALID_DAYS,
+} from "@/lib/docDefaults";
 import { addDays, fmtMan } from "@/lib/format";
 import { DocSettings, SELLER_FEE_LABELS, SellerFeeChoice } from "@/lib/types";
 
@@ -57,7 +63,9 @@ export function CustomerDocsPanel() {
   /** 出力できない理由（空なら出力可能） */
   function blockedReason(kind: Kind): string {
     if (!hasPrice && kind !== "konkyo") return "先に買取価格を決めてください";
-    if (kind === "satei" && !feeChosen) return "売主様側の仲介手数料の有無を選んでください";
+    // 比較表の「お手元に残る金額」は手数料の有無で変わるため、査定書と同じく選択を必須にする
+    if ((kind === "satei" || kind === "hikaku") && !feeChosen)
+      return "売主様側の仲介手数料の有無を選んでください";
     if (kind === "hosho" && !docs.guaranteeUntil) return "保証期限を入れてください";
     return "";
   }
@@ -211,6 +219,16 @@ export function CustomerDocsPanel() {
             保証の条件の文言は、最初の1枚を発行する前に社内で確認してください。
             確認が済むまでこの注意書きは画面にだけ表示されます（PDFには印字されません）。
           </p>
+          <Field
+            label="媒介業者"
+            hint="販売を媒介する会社。買取をする発行会社とは別のことがあるため、書面で書き分けます"
+          >
+            <TextInput
+              value={docs.mediationCompany ?? ""}
+              onChange={(e) => setDocs({ mediationCompany: e.target.value })}
+              placeholder={DEFAULT_MEDIATION_COMPANY}
+            />
+          </Field>
           <div className="grid grid-cols-3 gap-3">
             <Field label="媒介契約日">
               <TextInput
@@ -254,16 +272,36 @@ export function CustomerDocsPanel() {
         {/* ---- 比較表 ---- */}
         <section className="space-y-3 border-t border-border pt-4">
           <h4 className="text-xs font-bold text-muted">仲介と買取の比較表</h4>
-          <Field
-            label="仲介で売る場合の期間の目安"
-            hint="空欄のままなら「状況により異なります」と印字されます"
-          >
-            <TextInput
-              value={docs.brokerageMonths ?? ""}
-              onChange={(e) => setDocs({ brokerageMonths: e.target.value })}
-              placeholder="例：3〜6か月程度"
-            />
-          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field
+              label="仲介で売る場合の期間の目安"
+              hint="空欄のままなら「状況により異なります」と印字されます"
+            >
+              <TextInput
+                value={docs.brokerageMonths ?? ""}
+                onChange={(e) => setDocs({ brokerageMonths: e.target.value })}
+                placeholder="例：3〜6か月程度"
+              />
+            </Field>
+            <Field
+              label="買取の場合の期間の目安"
+              hint="空欄のままなら「ご相談のうえ決定します」と印字されます"
+            >
+              <TextInput
+                value={docs.purchaseMonths ?? ""}
+                onChange={(e) => setDocs({ purchaseMonths: e.target.value })}
+                placeholder="例：ご契約後1か月程度"
+              />
+            </Field>
+          </div>
+          <p className="text-[11px] leading-relaxed text-muted">
+            買取の「お手元に残る金額」は、上で選んだ売主様側の仲介手数料の有無に合わせて印字されます。
+            {feeChosen
+              ? docs.sellerFee === "charged"
+                ? "いまの設定では、買取価格から仲介手数料を差し引いた額を記載します。"
+                : "いまの設定では、仲介手数料の差引なしで買取価格をそのまま記載します。"
+              : "未選択のあいだは比較表を出力できません。"}
+          </p>
           <p className="text-[11px] text-muted">
             仲介の査定価格は査定入力欄の値（
             {current.assessment?.brokerAssessPrice

@@ -241,14 +241,14 @@ export function AssessTab() {
         <Card className="overflow-hidden">
           <CardHeader
             title="買取価格"
-            desc="確保したい利益を選んでください。選んだ価格がそのまま書類に入ります"
+            desc="確保したい粗利を選んでください。選んだ価格がそのまま書類に入ります"
           />
           <div className="p-4 pt-3">
             {resolved.resalePrice <= 0 ? (
               <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center">
                 <p className="text-sm font-semibold text-fg">再販想定価格を入れてください</p>
                 <p className="mt-1 text-xs text-muted">
-                  入れた瞬間に、利益100・150・200・250万円それぞれの買取価格が出ます。
+                  入れた瞬間に、粗利100・150・200・250万円それぞれの買取価格が出ます。
                 </p>
               </div>
             ) : (
@@ -279,7 +279,7 @@ export function AssessTab() {
                           selected ? "text-brand-100" : "text-muted"
                         )}
                       >
-                        利益 {l.profit}万円
+                        粗利 {l.profit}万円
                       </div>
                       <div className="mt-1.5 text-num-lg tabular-nums">
                         {l.result.feasible ? fmtMan(l.displayPrice) : "—"}
@@ -298,7 +298,7 @@ export function AssessTab() {
                           selected ? "text-brand-100" : "text-faint"
                         )}
                       >
-                        {l.result.feasible ? `利益率 ${fmtPct(margin, 1)}` : "この利益は確保できません"}
+                        {l.result.feasible ? `粗利率 ${fmtPct(margin, 1)}` : "この粗利は確保できません"}
                       </div>
                       {selected && (
                         <span className="absolute right-3 top-3 text-white" aria-hidden>
@@ -312,6 +312,12 @@ export function AssessTab() {
                 })}
               </div>
             )}
+
+            {/* 呼び名の食い違いを防ぐための注記（画面の「粗利」＝計算書の「営業利益」） */}
+            <p className="mt-2 px-0.5 text-[11px] leading-relaxed text-faint">
+              ここでいう粗利は、販売経費（仲介手数料・広告費など）まで差し引いた後に残る額です。
+              計算書タブの「営業利益」と同じ数字になります。
+            </p>
 
             {/* 提示価格（選んだ価格が入る。手入力で微調整もできる） */}
             <div className="mt-3 flex flex-wrap items-end gap-5 rounded-2xl bg-surface-2 p-4">
@@ -376,13 +382,13 @@ function OfferSummary({
   return (
     <div className="flex items-center gap-3">
       <div>
-        <div className="text-xs text-muted">この価格で買った場合の利益</div>
+        <div className="text-xs text-muted">この価格で買った場合の粗利</div>
         <div className={cn("text-num tabular-nums", color)}>
           {fmtMan(profit)}
           <span className="ml-1 text-sm font-semibold text-muted">万円</span>
         </div>
       </div>
-      <Badge tone={tone}>利益率 {fmtPct(margin, 1)}</Badge>
+      <Badge tone={tone}>粗利率 {fmtPct(margin, 1)}</Badge>
     </div>
   );
 }
@@ -426,7 +432,7 @@ function Breakdown({
       >
         <div className="p-4">
           <p className="mb-3 text-[11px] leading-relaxed text-muted">
-            再販想定価格 {fmtMan(resolved.resalePrice)}万円 から、下の費用と目標利益を引いた残りが買取価格です。
+            再販想定価格 {fmtMan(resolved.resalePrice)}万円 から、下の費用と目標の粗利を引いた残りが買取価格です。
             購入時手数料は買取価格に連動するため、収束計算（{ref.result.iterations}回）で求めています。
           </p>
           <table className="w-full text-sm">

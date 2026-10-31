@@ -1,6 +1,6 @@
 // 稟議書PDF
 import React from "react";
-import { Document, View, Text, BasePage, styles, COLORS, ApprovalRow } from "./common";
+import { Document, View, Text, BasePage, styles, SectionTitle, COLORS, ApprovalRow } from "./common";
 import { Company, Project, PROPERTY_TYPE_LABELS } from "@/lib/types";
 import { calculate, judgeProfit, tsuboUnitPrice, usesTsuboPrice, consolidatedProfit, receivedBrokerage, sumLotsArea, sumLotsTsubo } from "@/lib/calc";
 import { priceLines } from "@/lib/assessment";
@@ -60,7 +60,7 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
           <Text>担当者：{r.staff || "—"}</Text>
         </View>
 
-        <Text style={styles.sectionTitle}>物件情報</Text>
+        <SectionTitle>物件情報</SectionTitle>
         <KV label="買取希望物件名" value={r.propertyName} />
         <KV label="物件所在地" value={r.address} />
         <KV label="物件種別" value={r.propertyKind || PROPERTY_TYPE_LABELS[project.propertyType]} />
@@ -68,7 +68,7 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
         <KV label="反響入口" value={r.inquirySource} />
         <KV label="売却希望理由・注意点" value={r.sellReason} />
 
-        <Text style={styles.sectionTitle}>物件スペック</Text>
+        <SectionTitle>物件スペック</SectionTitle>
         {!isMansion && <KV label={landAreaLabel} value={landAreaDisplay} />}
         {isSubdivision && c.lots && c.lots.length > 0 && <KV label="区画数" value={`${c.lots.length} 区画`} />}
         {hasBuilding && <KV label="建物面積" value={buildingAreaDisplay} />}
@@ -77,7 +77,7 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
         <KV label="駐車場" value={r.parking} />
         {isMansion && (
           <>
-            <Text style={styles.sectionTitle}>マンション情報</Text>
+            <SectionTitle>マンション情報</SectionTitle>
             <KV label="階数" value={r.floor} />
             <KV label="専有面積" value={exclusiveAreaDisplay} />
             <KV label="エレベーター" value={r.hasElevator ? "有" : "無"} />
@@ -86,14 +86,14 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
           </>
         )}
 
-        <Text style={styles.sectionTitle}>査定情報</Text>
+        <SectionTitle>査定情報</SectionTitle>
         <KV label="売主希望買取価格" value={r.sellerHopePrice} />
         <KV label="査定方法1" value={r.assessMethod1} />
         <KV label="査定方法2" value={r.assessMethod2} />
         <KV label="路線価" value={r.rosenka} />
         <KV label="アピールポイント" value={r.appealPoint} />
 
-        <Text style={styles.sectionTitle}>購入チェックリスト</Text>
+        <SectionTitle>購入チェックリスト</SectionTitle>
         {/* 合否判定（合格ライン以上のOKで合格） */}
         <View
           style={{
@@ -179,7 +179,7 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
             })}
         </View>
 
-        <Text style={styles.sectionTitle}>買取からの再販スケジュール</Text>
+        <SectionTitle>買取からの再販スケジュール</SectionTitle>
         {/* 2列レイアウト。工程名と日付の間に余白を確保し、日付は固定幅・右揃えで揃える */}
         <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
           {r.schedule.map((s) => (
@@ -193,7 +193,7 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
           ))}
         </View>
 
-        <Text style={styles.sectionTitle}>再販試算サマリー</Text>
+        <SectionTitle>再販試算サマリー</SectionTitle>
         <View style={styles.row}>
           <Text style={styles.cellLabel}>買取原価（取得原価）</Text>
           <Text style={styles.cellValue}>{fmtMan(res.acquisitionCost)} 万円</Text>
@@ -249,7 +249,7 @@ export function RingiPdf({ project, company }: { project: Project; company?: Com
           </>
         )}
 
-        <Text style={styles.sectionTitle}>承認欄</Text>
+        <SectionTitle>承認欄</SectionTitle>
         <ApprovalRow staff={r.approverStaff} manager={r.approverManager} president={r.approverPresident} />
       </BasePage>
 
@@ -282,13 +282,13 @@ function PlanSummaryPage({ project, company }: { project: Project; company?: Com
     <BasePage company={company}>
       <Text style={styles.docTitle}>事業計画 要約（社内用）</Text>
 
-      <Text style={styles.sectionTitle}>案件</Text>
+      <SectionTitle>案件</SectionTitle>
       <KV label="案件名" value={project.name} />
       <KV label="種別" value={PROPERTY_TYPE_LABELS[project.propertyType]} />
       <KV label="所在地" value={a?.address || project.ringi.address} />
       <KV label="面積" value={areaLabel(a?.landAreaSqm) || areaLabel(project.calc.areaSqm, project.calc.tsubo)} />
 
-      <Text style={styles.sectionTitle}>収支の見通し</Text>
+      <SectionTitle>収支の見通し</SectionTitle>
       <View style={styles.row}>
         <Text style={styles.cellLabel}>買取価格（仕入）</Text>
         <Text style={styles.cellValue}>{fmtMan(project.calc.acquisition.purchase ?? 0)} 万円</Text>
@@ -315,7 +315,7 @@ function PlanSummaryPage({ project, company }: { project: Project; company?: Com
       </View>
       <Text style={[styles.paragraph, { marginTop: 6 }]}>{judgeText}</Text>
 
-      <Text style={styles.sectionTitle}>買取価格の根拠（利益ラインごとの逆算）</Text>
+      <SectionTitle>買取価格の根拠（利益ラインごとの逆算）</SectionTitle>
       <View style={styles.table}>
         <View style={{ flexDirection: "row" }}>
           <Text style={[styles.th, { width: "34%" }]}>確保する利益</Text>
@@ -335,7 +335,7 @@ function PlanSummaryPage({ project, company }: { project: Project; company?: Com
         ))}
       </View>
 
-      <Text style={styles.sectionTitle}>懸念点と対応</Text>
+      <SectionTitle>懸念点と対応</SectionTitle>
       {ngs.length === 0 && fixables.length === 0 ? (
         <Text style={styles.paragraph}>チェックリスト上の懸念点はありません。</Text>
       ) : (

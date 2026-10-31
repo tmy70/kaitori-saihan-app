@@ -17,15 +17,22 @@ export const DEFAULT_CONDITIONS: string[] = [
   "室内を確認する前にご提示している場合は、確認後に買取価格を変更させていただくことがあります。",
   "残置物（家財・設備等）は売主様にて撤去のうえお引渡しください。弊社にて処分する場合は、別途ご相談のうえ価格を調整いたします。",
   "境界の明示および確定測量は行わないものとし、現況の境界のままお引渡しいただきます。確定測量をご希望の場合は、費用のご負担について別途ご相談ください。",
-  "お引渡しの時期は、売買契約の締結からおおむね1か月以内を目安とし、売主様のご都合に合わせて調整いたします。",
+  "お引渡しの時期は、売主様のご都合をうかがったうえで、売買契約時に取り決めさせていただきます。",
 ];
 
 /** 買取保証書の保証の条件（初期値） */
 export const DEFAULT_GUARANTEE_CONDITIONS: string[] = [
-  "保証期間中、弊社との媒介契約が継続していること。",
+  "保証期間中、媒介契約が継続していること。",
   "保証期間中に、本物件の状態に大きな変化（滅失・毀損・用途の変更等）がないこと。",
   "その他の前提条件は、買取査定書に記載の前提条件と同じといたします。",
 ];
+
+/**
+ * 媒介をする会社の既定値。
+ * 買取をするのは発行会社（ゆかり株式会社）、媒介をするのは ViVi不動産株式会社 と役割が分かれるため、
+ * 買取保証書では両者を書き分ける。
+ */
+export const DEFAULT_MEDIATION_COMPANY = "ViVi不動産株式会社";
 
 /** 買取査定書の有効期限の既定日数（発行日から） */
 export const VALID_DAYS = 30;
@@ -47,7 +54,9 @@ export function defaultDocSettings(): DocSettings {
     conditions: [...DEFAULT_CONDITIONS],
     sellerFee: "",
     guaranteeConditions: [...DEFAULT_GUARANTEE_CONDITIONS],
+    mediationCompany: DEFAULT_MEDIATION_COMPANY,
     brokerageMonths: "",
+    purchaseMonths: "",
   };
 }
 

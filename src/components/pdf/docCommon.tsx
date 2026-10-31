@@ -147,6 +147,22 @@ export function joinJa(s: string): string {
   return s.replace(JA_GAP, "$1");
 }
 
+/** 見出しの下に最低限必要な高さ（pt）。本文2行ぶん程度 */
+const HEADING_KEEP = 56;
+
+/**
+ * 見出し。
+ * minPresenceAhead を付けて、見出しだけがページの末尾に取り残されないようにする。
+ * この高さぶんの余白がページ下部に無ければ、見出しごと次のページへ送られる。
+ */
+export function Heading({ children }: { children: string }) {
+  return (
+    <Text style={d.heading} minPresenceAhead={HEADING_KEEP}>
+      {t(children)}
+    </Text>
+  );
+}
+
 /**
  * 本文の段落。複数行に分けて書いても、日本語として詰めて1つの文になる。
  * 単位記号の正規化（㎡→m² など）もここで行う。

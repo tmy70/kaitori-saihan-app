@@ -378,9 +378,17 @@ export interface DocSettings {
   guaranteeUntil?: string;
   /** 買取保証書：保証の条件（1行＝1項目） */
   guaranteeConditions?: string[];
+  /**
+   * 買取保証書：媒介をする会社名。
+   * 買取をする会社（発行会社）と媒介をする会社が違うため、書面では両者を書き分ける。
+   * 既定は ViVi不動産株式会社。
+   */
+  mediationCompany?: string;
 
   /** 比較表：仲介で売る場合の期間の目安（自由記述。空欄なら「状況により異なります」と表示） */
   brokerageMonths?: string;
+  /** 比較表：買取の場合の決済までの目安（自由記述。空欄なら「ご相談のうえ決定します」と表示） */
+  purchaseMonths?: string;
 }
 
 /**

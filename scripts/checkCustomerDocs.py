@@ -54,7 +54,8 @@ def main():
     checked = 0
     for f in files:
         name = os.path.basename(f)
-        kind = name.replace(".pdf", "").split("_")[-1]
+        # ファイル名は「種別_書類」。書類名に "-変化形" が付く場合（hikaku-charged）も同じ書類として扱う
+        kind = name.replace(".pdf", "").split("_")[-1].split("-")[0]
         problems = []
         with pdfplumber.open(f) as pdf:
             text = "\n".join((p.extract_text() or "") for p in pdf.pages)

@@ -13,6 +13,7 @@ import {
   DocPage,
   DocTitle,
   KeyValueTable,
+  Heading,
   Note,
   P,
   Text,
@@ -57,7 +58,7 @@ export function KonkyoPdf({ project, company }: { project: Project; company?: Co
           作成日　{fmtDateJa(project.docs?.issueDate)}　／　担当　{t(staffOf(project)) || "―"}
         </P>
 
-        <Text style={d.heading}>案件</Text>
+        <Heading>案件</Heading>
         <KeyValueTable
           rows={[
             { label: "案件名", value: project.name },
@@ -67,7 +68,7 @@ export function KonkyoPdf({ project, company }: { project: Project; company?: Co
           ]}
         />
 
-        <Text style={d.heading}>提示価格と利益</Text>
+        <Heading>提示価格と利益</Heading>
         <KeyValueTable
           rows={[
             { label: "再販想定価格", value: fmtManAsYen(r.resalePrice) },
@@ -85,7 +86,7 @@ export function KonkyoPdf({ project, company }: { project: Project; company?: Co
 
         {/* 見出し行だけが前のページに取り残されないよう、表はまとめて次ページへ送る */}
         <View wrap={false}>
-          <Text style={d.heading}>差し引いた費用の内訳</Text>
+          <Heading>差し引いた費用の内訳</Heading>
           <View style={d.table}>
             <View style={d.tr} wrap={false}>
               <Text style={[d.th, { width: "40%" }]}>費目</Text>
@@ -112,7 +113,7 @@ export function KonkyoPdf({ project, company }: { project: Project; company?: Co
 
       {/* 2ページ目：利益ラインごとの買取価格（詰め込まずページを分ける） */}
       <DocPage company={company}>
-        <Text style={d.heading}>利益ラインごとの買取価格</Text>
+        <Heading>利益ラインごとの買取価格</Heading>
         <P>
           再販想定価格 {fmtManAsYen(r.resalePrice)} を前提に、確保する利益ごとの買取価格を逆算した結果です。
           購入時手数料は買取価格に連動するため、収束計算により求めています。
@@ -138,7 +139,7 @@ export function KonkyoPdf({ project, company }: { project: Project; company?: Co
           ))}
         </View>
 
-        <Text style={d.heading}>逆算の考え方</Text>
+        <Heading>逆算の考え方</Heading>
         <P>
           買取価格 ＝ 再販想定価格 − 確保する利益 − {workLabel} − 取得時の諸費用 − 経費 − 販売経費
         </P>

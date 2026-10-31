@@ -14,6 +14,7 @@ import {
   Issuer,
   KeyValueTable,
   NumberedList,
+  Heading,
   Note,
   P,
   Text,
@@ -42,21 +43,21 @@ export function SateiPdf({ project, company }: { project: Project; company?: Com
           次のとおり買取価格をご提示申し上げます。ご検討のほどよろしくお願い申し上げます。
         </P>
 
-        <Text style={d.heading}>買取価格</Text>
+        <Heading>買取価格</Heading>
         <AmountBox label="買取価格" yen={offerYen(project)} />
         <P>
           有効期限　{fmtDateJa(docs.validUntil) || "別途ご相談"}
         </P>
 
-        <Text style={d.heading}>物件の表示</Text>
+        <Heading>物件の表示</Heading>
         <KeyValueTable rows={propertyRows(project)} />
 
-        <Text style={d.heading}>前提条件</Text>
+        <Heading>前提条件</Heading>
         <NumberedList items={conditionsOf(project)} />
 
         {fee ? (
           <View>
-            <Text style={d.heading}>売主様の仲介手数料</Text>
+            <Heading>売主様の仲介手数料</Heading>
             <P>{SELLER_FEE_LABELS[fee]}</P>
           </View>
         ) : null}

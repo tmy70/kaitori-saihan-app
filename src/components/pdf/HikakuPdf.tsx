@@ -14,6 +14,7 @@ import {
   IssueDate,
   Issuer,
   KeyValueTable,
+  Heading,
   Note,
   P,
   Text,
@@ -39,7 +40,14 @@ export function HikakuPdf({ project, company }: { project: Project; company?: Co
   const brokerageFee = brokerAssess > 0 ? calcBrokerage(brokerAssess) : 0;
   const brokerageNet = brokerAssess > 0 ? brokerAssess - brokerageFee : 0;
 
-  const period = docs.brokerageMonths?.trim();
+  // 買取：売主様に仲介手数料がかかる取引形態なら、仲介側と同じ形で差引後の手取りを示す。
+  // かからない形態なら、差引が無いことを明記する。どちらかは案件ごとに選ぶ（未選択ならこの書類は出せない）。
+  const feeCharged = docs.sellerFee === "charged";
+  const purchaseFee = feeCharged && offer > 0 ? calcBrokerage(offer) : 0;
+  const purchaseNet = offer - purchaseFee;
+
+  const brokeragePeriod = docs.brokerageMonths?.trim();
+  const purchasePeriod = docs.purchaseMonths?.trim();
 
   const rows: CompareRow[] = [
     {
@@ -48,12 +56,17 @@ export function HikakuPdf({ project, company }: { project: Project; company?: Co
         brokerAssess > 0
           ? `${fmtManAsYen(brokerageNet)}\n（査定価格 ${fmtManAsYen(brokerAssess)} − 仲介手数料 ${fmtManAsYen(brokerageFee)}）`
           : "査定価格から仲介手数料を差し引いた額",
-      purchase: offer > 0 ? `${fmtManAsYen(offer)}\n仲介手数料の差引はありません` : "―",
+      purchase:
+        offer <= 0
+          ? "―"
+          : feeCharged
+          ? `${fmtManAsYen(purchaseNet)}\n（買取価格 ${fmtManAsYen(offer)} − 仲介手数料 ${fmtManAsYen(purchaseFee)}）`
+          : `${fmtManAsYen(offer)}\n仲介手数料の差引はありません`,
     },
     {
       item: "売却までの期間の目安",
-      brokerage: period ? period : "状況により異なります",
-      purchase: "ご契約後、おおむね1か月以内に決済",
+      brokerage: brokeragePeriod ? brokeragePeriod : "状況により異なります",
+      purchase: purchasePeriod ? purchasePeriod : "ご相談のうえ決定します",
     },
     {
       item: "内覧への対応",
@@ -91,10 +104,10 @@ export function HikakuPdf({ project, company }: { project: Project; company?: Co
           ご検討の参考になれば幸いです。
         </P>
 
-        <Text style={d.heading}>物件の表示</Text>
+        <Heading>物件の表示</Heading>
         <KeyValueTable rows={propertyRows(project)} />
 
-        <Text style={d.heading}>比較</Text>
+        <Heading>比較</Heading>
         <View style={d.table}>
           <View style={d.tr} wrap={false}>
             <Text style={[d.th, { width: "24%" }]}>項目</Text>
@@ -112,6 +125,9 @@ export function HikakuPdf({ project, company }: { project: Project; company?: Co
 
         <Note>
           仲介手数料は「売買価格×3%＋6万円」（別途消費税）として算出しています。
+          {feeCharged
+            ? "買取の場合も、媒介契約に基づく仲介手数料を申し受けます。"
+            : "買取の場合、売主様に仲介手数料はかかりません。"}
           記載の金額は現時点の査定に基づく概算であり、実際の成約価格・諸費用により変動します。
         </Note>
       </DocPage>

@@ -108,6 +108,14 @@ async function main() {
       await renderToFile(el, file);
       process.stdout.write(`${path.basename(file)}\n`);
     }
+
+    // 比較表は「売主様側の仲介手数料あり」の場合も書き出す（記載が切り替わることの確認用）
+    if (type === "building") {
+      const charged: Project = { ...p, docs: { ...p.docs, sellerFee: "charged" } };
+      const file = path.join(OUT, `${type}_hikaku-charged.pdf`);
+      await renderToFile(<HikakuPdf project={charged} company={company} />, file);
+      process.stdout.write(`${path.basename(file)}\n`);
+    }
   }
 }
 

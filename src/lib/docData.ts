@@ -3,7 +3,11 @@
 // 画面・PDFのどこから見ても同じ表記になるよう、ここに集約する。
 // ============================================================
 import { areaLabel, manToYen } from "./format";
-import { DEFAULT_CONDITIONS, DEFAULT_GUARANTEE_CONDITIONS } from "./docDefaults";
+import {
+  DEFAULT_CONDITIONS,
+  DEFAULT_GUARANTEE_CONDITIONS,
+  DEFAULT_MEDIATION_COMPANY,
+} from "./docDefaults";
 import { Project, PROPERTY_TYPE_LABELS } from "./types";
 
 /** 物件の表示（所在・種別・面積・築年） */
@@ -39,6 +43,14 @@ export function conditionsOf(p: Project): string[] {
 export function guaranteeConditionsOf(p: Project): string[] {
   const c = p.docs?.guaranteeConditions;
   return c && c.length > 0 ? c : DEFAULT_GUARANTEE_CONDITIONS;
+}
+
+/**
+ * 媒介をする会社名（未設定なら既定）。
+ * 買取をする発行会社とは別であることが多いため、書面では分けて記載する。
+ */
+export function mediationCompanyOf(p: Project): string {
+  return p.docs?.mediationCompany?.trim() || DEFAULT_MEDIATION_COMPANY;
 }
 
 /** 担当者名（査定入力 → 稟議書の順に探す） */

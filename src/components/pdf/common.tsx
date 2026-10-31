@@ -71,6 +71,21 @@ export const styles = StyleSheet.create({
   approvalName: { textAlign: "center", fontSize: 11, marginTop: 6, color: COLORS.muted },
 });
 
+/** 見出しの下に最低限必要な高さ（pt）。見出しだけがページ末に取り残されるのを防ぐ */
+const SECTION_KEEP = 54;
+
+/**
+ * 区切りの見出し。
+ * minPresenceAhead により、下に十分な余白が無ければ見出しごと次のページへ送られる。
+ */
+export function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <Text style={styles.sectionTitle} minPresenceAhead={SECTION_KEEP}>
+      {children}
+    </Text>
+  );
+}
+
 export function PdfHeader({ company }: { company?: Company }) {
   return (
     <View style={styles.headerBar} fixed>

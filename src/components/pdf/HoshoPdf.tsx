@@ -3,7 +3,13 @@
 import React from "react";
 import { Company, Project } from "@/lib/types";
 import { fmtDateJa } from "@/lib/format";
-import { guaranteeConditionsOf, guaranteeYen, propertyRows, staffOf } from "@/lib/docData";
+import {
+  guaranteeConditionsOf,
+  guaranteeYen,
+  mediationCompanyOf,
+  propertyRows,
+  staffOf,
+} from "@/lib/docData";
 import {
   Addressee,
   AmountBox,
@@ -14,6 +20,7 @@ import {
   Issuer,
   KeyValueTable,
   NumberedList,
+  Heading,
   Note,
   P,
   Text,
@@ -33,18 +40,24 @@ export function HoshoPdf({ project, company }: { project: Project; company?: Com
 
         <DocTitle>買取保証書</DocTitle>
 
+        {/*
+          媒介をするのは ViVi不動産、買取をするのは発行会社（ゆかり）というように、
+          役割が分かれることがある。主語がずれないよう、販売は「売主様が媒介契約により」、
+          買取は「弊社が」と書き分ける。
+        */}
         <P>
-          弊社は、下記不動産につきまして、売主様との媒介契約に基づく販売活動を行い、
+          売主様が媒介契約により下記不動産を販売され、
           {until ? until : "下記の保証期限"}までに売買契約の締結に至らなかった場合、
-          下記の価格をもって弊社が買い取ることを保証いたします。
+          弊社が下記の価格をもって買い取ることを保証いたします。
         </P>
 
-        <Text style={d.heading}>保証価格</Text>
+        <Heading>保証価格</Heading>
         <AmountBox label="買取保証価格" yen={guaranteeYen(project)} />
 
-        <Text style={d.heading}>保証の内容</Text>
+        <Heading>保証の内容</Heading>
         <KeyValueTable
           rows={[
+            { label: "媒介業者", value: mediationCompanyOf(project) },
             { label: "媒介契約日", value: fmtDateJa(docs.mediationDate) },
             { label: "保証期限", value: until },
             {
@@ -54,10 +67,10 @@ export function HoshoPdf({ project, company }: { project: Project; company?: Com
           ]}
         />
 
-        <Text style={d.heading}>物件の表示</Text>
+        <Heading>物件の表示</Heading>
         <KeyValueTable rows={propertyRows(project)} />
 
-        <Text style={d.heading}>保証の条件</Text>
+        <Heading>保証の条件</Heading>
         <NumberedList items={guaranteeConditionsOf(project)} />
 
         <Note>

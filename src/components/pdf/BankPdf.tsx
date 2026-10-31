@@ -11,6 +11,7 @@ import {
   DocPage,
   DocTitle,
   KeyValueTable,
+  Heading,
   Note,
   P,
   Text,
@@ -43,7 +44,7 @@ export function BankPdf({ project, company }: { project: Project; company?: Comp
           作成日　{fmtDateJa(project.docs?.issueDate)}
         </P>
 
-        <Text style={d.heading}>事業概要</Text>
+        <Heading>事業概要</Heading>
         {project.bankPlan?.body ? (
           <NarrativeBody text={project.bankPlan.body} />
         ) : (
@@ -54,7 +55,7 @@ export function BankPdf({ project, company }: { project: Project; company?: Comp
           </P>
         )}
 
-        <Text style={d.heading}>対象不動産の概要</Text>
+        <Heading>対象不動産の概要</Heading>
         <KeyValueTable
           labelWidth="28%"
           rows={[
@@ -75,7 +76,7 @@ export function BankPdf({ project, company }: { project: Project; company?: Comp
 
       {/* ---- 2ページ目：販売計画・収支計画 ---- */}
       <DocPage company={company}>
-        <Text style={d.heading}>販売計画</Text>
+        <Heading>販売計画</Heading>
         <KeyValueTable
           labelWidth="28%"
           rows={[
@@ -86,7 +87,7 @@ export function BankPdf({ project, company }: { project: Project; company?: Comp
           ]}
         />
 
-        <Text style={d.heading}>収支計画（単位：円）</Text>
+        <Heading>収支計画（単位：円）</Heading>
         <YenTable
           label="取得原価"
           items={[...ACQUISITION_ITEMS[project.propertyType], ...(project.calc.acquisitionExtra ?? [])]}
@@ -122,7 +123,7 @@ export function BankPdf({ project, company }: { project: Project; company?: Comp
 
       {/* ---- 3ページ目：資金計画・スケジュール ---- */}
       <DocPage company={company}>
-        <Text style={d.heading}>資金計画</Text>
+        <Heading>資金計画</Heading>
         <KeyValueTable
           labelWidth="32%"
           rows={[
@@ -135,7 +136,7 @@ export function BankPdf({ project, company }: { project: Project; company?: Comp
           ]}
         />
 
-        <Text style={d.heading}>事業スケジュール</Text>
+        <Heading>事業スケジュール</Heading>
         {scheduleRows.length > 0 ? (
           <View style={d.table}>
             <View style={d.tr} wrap={false}>
